@@ -657,7 +657,7 @@ private fun SettingsPage(
                 Card(colors = CardDefaults.cardColors(containerColor = card)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("NegativeMusic", color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("Versión 0.1.0", color = AccentBlue, fontWeight = FontWeight.SemiBold)
+                        Text("Versión 0.1.0 Beta", color = AccentBlue, fontWeight = FontWeight.SemiBold)
                         Text("Reproductor local de NegativeStudios.", color = sec)
                         Text("Interfaz azul y cian inspirada en el launcher NegativeStudios.", color = sec, fontSize = 13.sp)
                     }
