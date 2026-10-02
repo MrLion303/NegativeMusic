@@ -238,7 +238,7 @@ private fun NegativeMusicApp() {
         p.shuffleModeEnabled = false; manualQueueUris=emptySet(); p.repeatMode = repeat; p.prepare(); p.play(); now = chosen
     }
     fun favorite(s: Song) = saveFavorites(if (s.uri in favorites) favorites - s.uri else favorites + s.uri)
-    fun queue(s: Song) { val p = controller; if (p == null) toast = "El reproductor se está iniciando." else if (p.mediaItemCount == 0) play(listOf(s)) else { p.addMediaItem(item(s)); manualQueueUris=manualQueueUris+s.uri; toast = "Añadida a la fila." } }
+    fun queue(s: Song) { val p = controller; if (p == null) toast = "El reproductor se está iniciando." else if (p.mediaItemCount == 0) play(listOf(s)) else { val insertAt=(p.currentMediaItemIndex+1+manualQueueUris.count { uri -> (0 until p.mediaItemCount).any { p.getMediaItemAt(it).mediaId==uri } }).coerceIn(0,p.mediaItemCount); p.addMediaItem(insertAt,item(s)); manualQueueUris=manualQueueUris+s.uri; toast = "Añadida a la fila." } }
     fun toggleShuffleQueue() {
         val p=controller ?: return
         val next=!shuffle
@@ -403,26 +403,25 @@ private fun NegativeMusicApp() {
                         LaunchedEffect(now!!.uri, now!!.title){
                             marqueeState.scrollTo(0)
                             while(true){
-                                delay(1800)
+                                delay(2500)
                                 if(marqueeState.maxValue>0){
-                                    marqueeState.animateScrollTo(marqueeState.maxValue,tween(6500))
-                                    delay(1800)
-                                    marqueeState.animateScrollTo(0,tween(6500))
-                                    delay(1200)
-                                } else delay(1800)
+                                    marqueeState.animateScrollTo(marqueeState.maxValue,tween(11000, easing=LinearEasing))
+                                    marqueeState.scrollTo(0)
+                                    delay(2800)
+                                } else delay(2500)
                             }
                         }
                         Column(Modifier.fillMaxWidth()){
                             Row(Modifier.fillMaxWidth().horizontalScroll(marqueeState),verticalAlignment=Alignment.CenterVertically){
-                                Text(now!!.title,color=Color.White,fontWeight=FontWeight.SemiBold,maxLines=1,softWrap=false)
+                                Text(now!!.title,color=fg,fontWeight=FontWeight.SemiBold,maxLines=1,softWrap=false)
                             }
-                            Text(now!!.artist,color=Color.LightGray,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                            Text(now!!.artist,color=secondary,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         }
                     }
-                    IconButton(onClick={if(controller?.isPlaying==true)controller?.pause() else controller?.play()}){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,tint=Color.White)}
-                    IconButton(onClick={outputNames=try { val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager; am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()} } catch (_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=Color.White)}
+                    IconButton(onClick={if(controller?.isPlaying==true)controller?.pause() else controller?.play()}){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,tint=AccentBlue)}
+                    IconButton(onClick={outputNames=try { val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager; am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()} } catch (_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=AccentBlue)}
                 }
-                Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.fillMaxWidth().height(14.dp),thumb={Box(Modifier.size(7.dp).background(AccentBlue,CircleShape))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
+                Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.fillMaxWidth().height(14.dp),thumb={Box(Modifier.width(4.dp).height(16.dp).background(AccentBlue,RoundedCornerShape(2.dp)))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) { Text(time(position),color=secondary,fontSize=10.sp); Text(time(duration),color=secondary,fontSize=10.sp) }
             }
             NavigationBar(containerColor=surface,contentColor=fg) {
@@ -569,11 +568,11 @@ private fun NegativeMusicApp() {
         val playerNestedConnection=remember(playerScroll){
             object: NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    if(available.y>0f && playerScroll.value==0 && !playerDismissing){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); return Offset(0f,available.y) }
+                    if(available.y>0f && playerScroll.value==0 && !playerDismissing){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); if(playerDrag>0f) playerDismissing=false; return Offset(0f,available.y) }
                     return Offset.Zero
                 }
                 override suspend fun onPreFling(available: Velocity): Velocity {
-                    if(playerDrag>32f){ playerDismissing=true; showPlayer=false; playerDismissing=false; playerDrag=0f } else if(playerDrag>0f) playerDrag=0f
+                    if(playerDrag>120f && playerScroll.value==0){ showPlayer=false; playerDrag=0f } else if(playerDrag>0f) playerDrag=0f
                     return Velocity.Zero
                 }
             }
@@ -609,19 +608,19 @@ private fun NegativeMusicApp() {
                         IconButton(onClick={controller?.let{p->if(p.currentPosition>2000L)p.seekTo(0L)else p.seekToPreviousMediaItem()}}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))}
                         FilledIconButton(onClick={if(playing)controller?.pause()else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))}
                         IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))}
-                        IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary,modifier=Modifier.size(27.dp))}
+                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else AccentBlue,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center){IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}}
+                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center){IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=AccentBlue,modifier=Modifier.size(25.dp))}}
                         Spacer(Modifier.weight(1f)); Spacer(Modifier.weight(1f)); Spacer(Modifier.weight(1f))
-                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center){IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}}
+                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center){IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=AccentBlue,modifier=Modifier.size(25.dp))}}
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
                     Text(if(lyricsEditing) "Editando letra" else "Doble toque en la letra para editar.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
                     val lyricsFocusRequester = remember { FocusRequester() }
-                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.pointerInput(lyricsEditing){if(!lyricsEditing) detectTapGestures(onDoubleTap={lyricsEditing=true;scope.launch{lyricsFocusRequester.requestFocus()}})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
+                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp).pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={if(!lyricsEditing){lyricsEditing=true;scope.launch{lyricsFocusRequester.requestFocus()}}})}){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
             }
