@@ -15,6 +15,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -108,6 +109,7 @@ private fun NegativeMusicApp() {
     var songs by remember { mutableStateOf(emptyList<Song>()) }
     var loading by remember { mutableStateOf(true) }
     var page by remember { mutableStateOf("Inicio") }
+    var libraryTab by remember { mutableStateOf("Playlists") }
     var settingsSection by remember { mutableStateOf<String?>(null) }
     var search by remember { mutableStateOf("") }
     var theme by remember { mutableStateOf(prefs.getString("theme", "dark") ?: "dark") }
@@ -232,8 +234,6 @@ private fun NegativeMusicApp() {
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(AccentBlue), contentAlignment=Alignment.Center) { Icon(Icons.Default.GraphicEq, null, tint=Color.Black) }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) { Text("NEGATIVE", color=secondary, fontSize=10.sp, letterSpacing=2.sp, fontWeight=FontWeight.Bold); Text("Music", color=fg, fontSize=24.sp, fontWeight=FontWeight.ExtraBold) }
-                IconButton(onClick={page="Buscar"}) { Icon(Icons.Default.Search, "Buscar", tint=fg) }
-                IconButton(onClick={page="Ajustes"}) { Icon(Icons.Default.Settings, "Ajustes", tint=fg) }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -265,7 +265,7 @@ private fun NegativeMusicApp() {
                     Text(selectedPlaylist?.name ?: "Playlist",Modifier.padding(start=20.dp,end=20.dp,top=14.dp,bottom=4.dp),color=fg,fontSize=27.sp,fontWeight=FontWeight.ExtraBold)
                     Text(selectedPlaylist?.description.orEmpty(),Modifier.padding(horizontal=20.dp),color=secondary,maxLines=2,overflow=TextOverflow.Ellipsis)
                     Row(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Button(onClick={if(visibleSongs.isNotEmpty())play(visibleSongs.shuffled()) else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,null);Spacer(Modifier.width(6.dp));Text("Reproducir")}
+                        Button(onClick={if(visibleSongs.isNotEmpty())play(visibleSongs) else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,null);Spacer(Modifier.width(6.dp));Text("Reproducir")}
                         OutlinedButton(onClick={selectedSongUris=emptySet();addSongsSearch="";showAddSongsDialog=true},modifier=Modifier.weight(1f)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Añadir canción")}
                         IconButton(onClick={editTarget=selectedPlaylist}){Icon(Icons.Default.Edit,"Editar playlist",tint=fg)}
                     }
@@ -276,7 +276,7 @@ private fun NegativeMusicApp() {
                     item { Column(Modifier.padding(horizontal=20.dp, vertical=10.dp)) { Text("Tu música, tu mundo.",color=fg,fontSize=28.sp,fontWeight=FontWeight.ExtraBold); Text(if(loading)"Buscando música…" else "${songs.size} canciones en este dispositivo",color=secondary) } }
                     item { Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                         HomeTile("Reproducir todo","Tu biblioteca",Icons.Default.PlayArrow,Modifier.weight(1f)){play(songs)}
-                        HomeTile("Modo aleatorio","Mezcla tu música",Icons.Default.Shuffle,Modifier.weight(1f)){play(songs.shuffled())}
+                        HomeTile(if(shuffle)"Aleatorio activado" else "Modo aleatorio","Mezcla tu música",Icons.Default.Shuffle,Modifier.weight(1f)){val next=!(controller?.shuffleModeEnabled?:shuffle);shuffle=next;controller?.shuffleModeEnabled=next;if(songs.isNotEmpty()&&(controller?.mediaItemCount?:0)==0)play(songs)}
                     } }
                     item { Text("Tu biblioteca",Modifier.padding(start=20.dp,top=14.dp,bottom=6.dp),color=fg,fontSize=19.sp,fontWeight=FontWeight.Bold) }
                     item { HomeRow("Buscar canciones","${songs.size} canciones en el dispositivo",Icons.Default.LibraryMusic,fg,secondary){page="Buscar"} }
@@ -428,7 +428,8 @@ private fun PlaylistDialog(title:String,initialName:String,initialDesc:String,in
     var name by remember { mutableStateOf(initialName) }
     var desc by remember { mutableStateOf(initialDesc) }
     var cover by remember { mutableStateOf(initialCover) }
-    val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){it?.let{uri->cover=uri.toString()}}
+    val context=LocalContext.current
+    val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null){runCatching{context.contentResolver.takePersistableUriPermission(uri,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)};cover=uri.toString()}}
     androidx.compose.ui.window.Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(modifier=Modifier.fillMaxWidth(0.92f).heightIn(max=640.dp),shape=RoundedCornerShape(26.dp),color=Panel,tonalElevation=10.dp) {
             Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
@@ -443,16 +444,13 @@ private fun PlaylistDialog(title:String,initialName:String,initialDesc:String,in
                     }
                     IconButton(onClick=onDismiss){Icon(Icons.Default.Close,"Cerrar",tint=Gray)}
                 }
-                Box(Modifier.fillMaxWidth().height(112.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF102D4A),Color(0xFF10202C)))),contentAlignment=Alignment.Center) {
-                    Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                        Icon(if(cover.isBlank()) Icons.Default.MusicNote else Icons.Default.Image,null,tint=AccentCyan,modifier=Modifier.size(35.dp))
-                        Text(if(cover.isBlank()) "Tu playlist" else "Portada seleccionada",color=Color.White,fontWeight=FontWeight.SemiBold)
-                        Text("Puedes cambiar la portada cuando quieras",color=Gray,fontSize=11.sp)
-                    }
+                Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF102D4A),Color(0xFF10202C)))),contentAlignment=Alignment.Center) {
+                    if(cover.isNotBlank()) AsyncImage(model=cover,contentDescription="Vista previa de portada",modifier=Modifier.fillMaxSize(),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
+                    else Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) { Icon(Icons.Default.MusicNote,null,tint=AccentCyan,modifier=Modifier.size(35.dp)); Text("Tu playlist",color=Color.White,fontWeight=FontWeight.SemiBold); Text("Puedes cambiar la portada cuando quieras",color=Gray,fontSize=11.sp) }
                 }
-                OutlinedTextField(value=name,onValueChange={name=it},modifier=Modifier.fillMaxWidth(),label={Text("Nombre de la playlist")},placeholder={Text("Por ejemplo: Favoritas de noche")},singleLine=true,shape=RoundedCornerShape(14.dp),leadingIcon={Icon(Icons.Default.Edit,null)},colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=AccentBlue,focusedLabelColor=AccentBlue,cursorColor=AccentBlue))
+                OutlinedTextField(value=name,onValueChange={name=it},modifier=Modifier.fillMaxWidth(),label={Text("Nombre de la playlist")},placeholder={Text("Por ejemplo: Favoritas de noche")},singleLine=true,shape=RoundedCornerShape(14.dp),leadingIcon={Icon(Icons.Default.Edit,null)},colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Color.White,unfocusedTextColor=Color.White,focusedContainerColor=Color(0xFF101923),unfocusedContainerColor=Color(0xFF101923),focusedBorderColor=AccentBlue,unfocusedBorderColor=Gray.copy(alpha=.5f),focusedLabelColor=AccentBlue,unfocusedLabelColor=Gray,cursorColor=AccentBlue))
                 OutlinedTextField(value=desc,onValueChange={desc=it},modifier=Modifier.fillMaxWidth(),label={Text("Descripción (opcional)")},placeholder={Text("¿Qué canciones reúne?")},minLines=2,maxLines=3,shape=RoundedCornerShape(14.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=AccentBlue,focusedLabelColor=AccentBlue,cursorColor=AccentBlue))
-                OutlinedButton(onClick={picker.launch("image/*")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp)) {
+                OutlinedButton(onClick={picker.launch(arrayOf("image/*"))},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp)) {
                     Icon(Icons.Default.Image,null);Spacer(Modifier.width(8.dp));Text(if(cover.isBlank()) "Elegir imagen de portada" else "Cambiar imagen de portada")
                 }
                 Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
