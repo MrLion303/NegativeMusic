@@ -276,7 +276,7 @@ private fun NegativeMusicApp() {
                         Button(onClick={playlistOrigin=page;createDialog=true},colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Crear")}
                     }
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        listOf("Playlists","Favoritos").forEach { tab -> FilterChip(selected=libraryTab==tab,onClick={libraryTab=tab},label={Text(tab)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=AccentBlue.copy(alpha=.2f),selectedLabelColor=AccentBlue)) }
+                        listOf("Playlists","Favoritos").forEach { tab -> FilterChip(selected=libraryTab==tab,onClick={libraryTab=tab},label={Text(tab)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=AccentBlue.copy(alpha=.2f),selectedLabelColor=if(dark) Color.White else AccentBlue)) }
                     }
                     LazyColumn(Modifier.weight(1f).fillMaxWidth(),contentPadding=PaddingValues(bottom=16.dp)) {
                         if(libraryTab=="Playlists") {
