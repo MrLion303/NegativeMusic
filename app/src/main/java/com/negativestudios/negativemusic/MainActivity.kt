@@ -619,8 +619,8 @@ private fun NegativeMusicApp() {
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp),verticalAlignment=Alignment.CenterVertically){ Text(if(lyricsEditing) "Editando letra" else "Letra bloqueada",color=secondary,fontSize=12.sp,modifier=Modifier.weight(1f)); TextButton(onClick={ if(lyricsEditing){lyricsEditing=false} else {lyricsEditing=true;scope.launch{delay(100);lyricsFocusRequester.requestFocus()} } }){Text(if(lyricsEditing) "Listo" else "Editar",color=AccentBlue)} }
                     val lyricsFocusRequester = remember { FocusRequester() }
+                    Row(Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp),verticalAlignment=Alignment.CenterVertically){ Text(if(lyricsEditing) "Editando letra" else "Letra bloqueada",color=secondary,fontSize=12.sp,modifier=Modifier.weight(1f)); TextButton(onClick={ if(lyricsEditing){lyricsEditing=false} else {lyricsEditing=true;scope.launch{delay(100);lyricsFocusRequester.requestFocus()} } }){Text(if(lyricsEditing) "Listo" else "Editar",color=AccentBlue)} }
                     Box(Modifier.fillMaxWidth().padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
