@@ -395,8 +395,8 @@ private fun NegativeMusicApp() {
         ){Text(toast,color=if(dark)Color.White else Color(0xFF171717),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)}
     }
             if (now != null) {
-                Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF102C4A)).clickable{showPlayer=true}.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Default.Album,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(38.dp))
+                Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(surfaceVariant).clickable{showPlayer=true}.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(38.dp))
                     Spacer(Modifier.width(9.dp))
                     Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))){
                         val marqueeState=rememberScrollState()
@@ -604,11 +604,11 @@ private fun NegativeMusicApp() {
                     Row(Modifier.fillMaxWidth().padding(top=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
-                        IconButton(onClick={controller?.let{p->if(p.currentPosition>2000L)p.seekTo(0L)else p.seekToPreviousMediaItem()}}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))}
+                        IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=AccentBlue,modifier=Modifier.size(27.dp))}
+                        IconButton(onClick={controller?.let{p->if(p.currentPosition>2000L)p.seekTo(0L)else p.seekToPreviousMediaItem()}}){Icon(Icons.Default.SkipPrevious,null,tint=AccentBlue,modifier=Modifier.size(34.dp))}
                         FilledIconButton(onClick={if(playing)controller?.pause()else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))}
-                        IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))}
-                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else AccentBlue,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
+                        IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=AccentBlue,modifier=Modifier.size(34.dp))}
+                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=AccentBlue,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
@@ -620,7 +620,7 @@ private fun NegativeMusicApp() {
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
                     Text(if(lyricsEditing) "Editando letra" else "Doble toque en la letra para editar.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
                     val lyricsFocusRequester = remember { FocusRequester() }
-                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp).pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={if(!lyricsEditing){lyricsEditing=true;scope.launch{lyricsFocusRequester.requestFocus()}}})}){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
+                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp).pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={if(!lyricsEditing){lyricsEditing=true;scope.launch{awaitFrame();lyricsFocusRequester.requestFocus()}}})}){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
             }
