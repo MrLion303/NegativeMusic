@@ -254,7 +254,7 @@ private fun NegativeMusicApp() {
             val movable=all.filter{it.mediaId !in manualQueueUris && it.mediaId!=current?.mediaId}
             val ordered=if(next) movable.shuffled() else movable
             val rebuilt=listOfNotNull(current)+ordered+pinned
-            if(rebuilt.isNotEmpty()){p.setMediaItems(rebuilt,0,p.currentPosition);p.prepare();p.play()}
+            if(rebuilt.isNotEmpty()){val currentIndex=rebuilt.indexOfFirst{it.mediaId==current?.mediaId}.coerceAtLeast(0);val savedPosition=p.currentPosition;p.setMediaItems(rebuilt,currentIndex,savedPosition);p.prepare();p.play()}
         }
     }
     val selectedPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
