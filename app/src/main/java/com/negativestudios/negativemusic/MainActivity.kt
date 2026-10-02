@@ -403,12 +403,13 @@ private fun NegativeMusicApp() {
                         LaunchedEffect(now!!.uri, now!!.title){
                             marqueeState.scrollTo(0)
                             while(true){
-                                delay(1200)
+                                delay(1800)
                                 if(marqueeState.maxValue>0){
-                                    marqueeState.animateScrollTo(marqueeState.maxValue,tween(1800))
-                                    delay(700)
-                                    marqueeState.scrollTo(0)
-                                } else delay(1000)
+                                    marqueeState.animateScrollTo(marqueeState.maxValue,tween(6500))
+                                    delay(1800)
+                                    marqueeState.animateScrollTo(0,tween(6500))
+                                    delay(1200)
+                                } else delay(1800)
                             }
                         }
                         Column(Modifier.fillMaxWidth()){
@@ -612,15 +613,15 @@ private fun NegativeMusicApp() {
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                        IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}
-                        Spacer(Modifier.width(70.dp))
-                        IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}
+                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center){IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}}
+                        Spacer(Modifier.weight(1f)); Spacer(Modifier.weight(1f)); Spacer(Modifier.weight(1f))
+                        Box(Modifier.weight(1f),contentAlignment=Alignment.Center){IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}}
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
                     Text(if(lyricsEditing) "Editando letra" else "Doble toque en la letra para editar.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
                     val lyricsFocusRequester = remember { FocusRequester() }
-                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.pointerInput(Unit){detectTapGestures(onDoubleTap={lyricsEditing=true;scope.launch{lyricsFocusRequester.requestFocus()}})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
+                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.pointerInput(lyricsEditing){if(!lyricsEditing) detectTapGestures(onDoubleTap={lyricsEditing=true;scope.launch{lyricsFocusRequester.requestFocus()}})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
             }
