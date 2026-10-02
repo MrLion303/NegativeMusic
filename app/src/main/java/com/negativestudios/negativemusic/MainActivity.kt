@@ -368,7 +368,7 @@ private fun NegativeMusicApp() {
                     IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=Color.White)}
                     IconButton(onClick={outputNames=try { val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager; am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()} } catch (_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=Color.White)}
                 }
-                Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.fillMaxWidth().height(14.dp),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
+                Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.fillMaxWidth().height(14.dp),thumb={Box(Modifier.size(7.dp).background(AccentBlue,CircleShape))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) { Text(time(position),color=secondary,fontSize=10.sp); Text(time(duration),color=secondary,fontSize=10.sp) }
             }
             NavigationBar(containerColor=surface,contentColor=fg) {
@@ -378,7 +378,16 @@ private fun NegativeMusicApp() {
             }
         }
     }
-    if (toast.isNotBlank()) AlertDialog(onDismissRequest={toast=""},text={Text(toast)},confirmButton={TextButton(onClick={toast=""}){Text("OK")}})
+    if (toast.isNotBlank()) {
+        Box(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp).offset{IntOffset(toastOffset.value.roundToInt(),0)}.clip(RoundedCornerShape(14.dp)).background(if(dark)Panel else Color.White).pointerInput(toast){
+            detectHorizontalDragGestures(
+                onHorizontalDrag={change,amount->change.consume();scope.launch{toastOffset.snapTo(toastOffset.value+amount)}},
+                onDragEnd={if(abs(toastOffset.value)>90f){val target=if(toastOffset.value>0f)900f else -900f;scope.launch{toastOffset.animateTo(target,tween(220));toast=""}}else scope.launch{toastOffset.animateTo(0f,tween(180))}},
+                onDragCancel={scope.launch{toastOffset.animateTo(0f,tween(180))}}
+            )
+        }.padding(horizontal=16.dp,vertical=10.dp)
+        ){Text(toast,color=if(dark)Color.White else Color(0xFF171717),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)}
+    }
     if (createDialog) PlaylistDialog("Crear playlist","","","",{createDialog=false}) { n,d,c -> val p=Playlist(System.currentTimeMillis().toString(),n,d,c,addSong?.let{listOf(it.uri)}?: emptyList());saveLists(playlists+p);addSong=null;createDialog=false;page="playlist:"+p.id }
     if (showAddSongsDialog) {
         val currentPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
