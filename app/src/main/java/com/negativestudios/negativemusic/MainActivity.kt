@@ -34,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -136,10 +137,8 @@ private fun NegativeMusicApp() {
     var normalize by remember { mutableStateOf(prefs.getBoolean("normalize", false)) }
     var volume by remember { mutableStateOf(prefs.getString("volume", "Normal") ?: "Normal") }
     var eqOn by remember { mutableStateOf(prefs.getBoolean("eq", false)) }
-    var bass by remember { mutableFloatStateOf(prefs.getInt("bass", 0).toFloat()) }
-    var treble by remember { mutableFloatStateOf(prefs.getInt("treble", 0).toFloat()) }
+    var eqBands by remember { mutableStateOf((0..4).map { prefs.getInt("eqBand$it", 0).toFloat() }) }
     var clearDataDialog by remember { mutableStateOf(false) }
-    var eqDialog by remember { mutableStateOf(false) }
     var outputDialog by remember { mutableStateOf(false) }
     var outputNames by remember { mutableStateOf(emptyList<String>()) }
     val dark = when (theme) { "light" -> false; "system" -> isSystemInDarkTheme(); else -> true }
@@ -237,7 +236,7 @@ private fun NegativeMusicApp() {
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
-                page == "Ajustes" -> SettingsPage(theme, settingsSection, { settingsSection = it }, { theme=it; prefs.edit().putString("theme",it).apply() }, crossfade, { crossfade=it; prefs.edit().putInt("crossfade",it.toInt()).apply() }, mono, { mono=it; prefs.edit().putBoolean("mono",it).apply() }, normalize, { normalize=it; prefs.edit().putBoolean("normalize",it).apply(); controller?.volume=if(it) .85f else 1f }, volume, { volume=it; prefs.edit().putString("volume",it).apply(); controller?.volume=when(it){"Bajo"->.55f;"Alto"->1f;else->.8f} }, eqOn, { eqOn=it; prefs.edit().putBoolean("eq",it).apply() }, bass, { bass=it; prefs.edit().putInt("bass",it.toInt()).apply() }, treble, { treble=it; prefs.edit().putInt("treble",it.toInt()).apply() }, songs.size, songs.sumOf{it.size}, ctx.filesDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, ctx.cacheDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, { ctx.cacheDir.deleteRecursively(); ctx.cacheDir.mkdirs(); toast="Caché limpiada." }, { clearDataDialog=true })
+                page == "Ajustes" -> SettingsPage(theme, settingsSection, { settingsSection = it }, { theme=it; prefs.edit().putString("theme",it).apply() }, crossfade, { crossfade=it; prefs.edit().putInt("crossfade",it.toInt()).apply() }, mono, { mono=it; prefs.edit().putBoolean("mono",it).apply() }, normalize, { normalize=it; prefs.edit().putBoolean("normalize",it).apply(); controller?.volume=if(it) .85f else 1f }, volume, { volume=it; prefs.edit().putString("volume",it).apply(); controller?.volume=when(it){"Bajo"->.55f;"Alto"->1f;else->.8f} }, eqOn, { eqOn=it; prefs.edit().putBoolean("eq",it).apply(); PlaybackAudioEffects.setEnabled(it) }, eqBands, { index,value -> val updated=eqBands.toMutableList(); updated[index]=value; eqBands=updated; prefs.edit().putInt("eqBand$index",value.toInt()).apply(); PlaybackAudioEffects.applyBands(updated.map{it.toInt()}) }, songs.size, songs.sumOf{it.size}, ctx.filesDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, ctx.cacheDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, { ctx.cacheDir.deleteRecursively(); ctx.cacheDir.mkdirs(); toast="Caché limpiada." }, { clearDataDialog=true })
                 page == "Buscar" -> Column(Modifier.fillMaxSize()) {
                     OutlinedTextField(search,{search=it},Modifier.fillMaxWidth().padding(horizontal=16.dp),placeholder={Text("¿Qué quieres escuchar?")},leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true)
                     SongRows(visibleSongs,favorites,fg,secondary,now?.uri,{play(visibleSongs,it);showPlayer=true},{menuSong=it},{favorite(it)},{queue(it)}, Modifier.weight(1f))
@@ -280,7 +279,7 @@ private fun NegativeMusicApp() {
                         HomeTile("Modo aleatorio","Mezcla tu música",Icons.Default.Shuffle,Modifier.weight(1f)){play(songs.shuffled())}
                     } }
                     item { Text("Tu biblioteca",Modifier.padding(start=20.dp,top=14.dp,bottom=6.dp),color=fg,fontSize=19.sp,fontWeight=FontWeight.Bold) }
-                    item { HomeRow("Todas las canciones","${songs.size} canciones",Icons.Default.LibraryMusic,fg,secondary){page="Biblioteca"} }
+                    item { HomeRow("Buscar canciones","${songs.size} canciones en el dispositivo",Icons.Default.LibraryMusic,fg,secondary){page="Buscar"} }
                     item { HomeRow("Canciones favoritas","${favorites.size} canciones",Icons.Default.Favorite,fg,secondary){page="Favoritos"} }
                     item { Text("Tus playlists",Modifier.padding(start=20.dp,top=18.dp,bottom=6.dp),color=fg,fontSize=19.sp,fontWeight=FontWeight.Bold) }
                     item { HomeRow("Crear playlist","Organiza tu música",Icons.Default.Add,fg,secondary){createDialog=true} }
@@ -397,9 +396,8 @@ private fun NegativeMusicApp() {
         }
     }
     if (showTimer) AlertDialog(onDismissRequest={showTimer=false},title={Text("Apagado automático")},text={Column{Text("Detener después de $timerMins minutos");Slider(value=timerMins.toFloat(),onValueChange={timerMins=it.toInt()},valueRange=5f..180f,steps=34)}},confirmButton={TextButton(onClick={deadline=System.currentTimeMillis()+timerMins*60000L;showTimer=false;toast="Temporizador activado."}){Text("Activar")}},dismissButton={TextButton(onClick={deadline=0;showTimer=false}){Text("Cancelar")}})
-    if (eqDialog) AlertDialog(onDismissRequest={eqDialog=false},title={Text("Ecualizador")},text={Column{Text("Graves");Slider(value=bass,onValueChange={bass=it;prefs.edit().putInt("bass",it.toInt()).apply()},valueRange=-10f..10f);Text("Agudos");Slider(value=treble,onValueChange={treble=it;prefs.edit().putInt("treble",it.toInt()).apply()},valueRange=-10f..10f);Text("El procesamiento avanzado depende de las capacidades de audio del dispositivo.",fontSize=12.sp,color=Gray)}},confirmButton={TextButton(onClick={eqDialog=false}){Text("Listo")}})
     if (outputDialog) AlertDialog(onDismissRequest={outputDialog=false},title={Text("Salidas de audio detectadas")},text={Column{if(outputNames.isEmpty())Text("No se detectaron salidas disponibles.") else outputNames.distinct().forEach{Text("• $it",Modifier.padding(vertical=3.dp))};Text("Para cambiar de salida, utiliza también el selector de audio de Android.",fontSize=12.sp,color=Gray)}},confirmButton={TextButton(onClick={outputDialog=false}){Text("Cerrar")}})
-    if (clearDataDialog) AlertDialog(onDismissRequest={clearDataDialog=false},title={Text("Limpiar almacenamiento")},text={Text("Se borrarán playlists, favoritos y preferencias. Las canciones originales del teléfono no se eliminarán.")},confirmButton={TextButton(onClick={prefs.edit().clear().apply();saveLists(emptyList());saveFavorites(emptySet());theme="dark";crossfade=0f;mono=false;normalize=false;volume="Normal";eqOn=false;bass=0f;treble=0f;clearDataDialog=false;toast="Datos de la app limpiados."}){Text("Limpiar datos")}},dismissButton={TextButton(onClick={clearDataDialog=false}){Text("Cancelar")}})
+    if (clearDataDialog) AlertDialog(onDismissRequest={clearDataDialog=false},title={Text("Limpiar almacenamiento")},text={Text("Se borrarán playlists, favoritos y preferencias. Las canciones originales del teléfono no se eliminarán.")},confirmButton={TextButton(onClick={prefs.edit().clear().apply();saveLists(emptyList());saveFavorites(emptySet());theme="dark";crossfade=0f;mono=false;normalize=false;volume="Normal";eqOn=false;(0..4).forEach{prefs.edit().putInt("eqBand$it",0).apply()};eqBands=listOf(0f,0f,0f,0f,0f);PlaybackAudioEffects.applyBands(listOf(0,0,0,0,0));PlaybackAudioEffects.setEnabled(false);clearDataDialog=false;toast="Datos de la app limpiados."}){Text("Limpiar datos")}},dismissButton={TextButton(onClick={clearDataDialog=false}){Text("Cancelar")}})
 }
 
 @Composable private fun BottomAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=22.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=fg);Spacer(Modifier.width(18.dp));Text(label,color=fg,fontSize=15.sp)}}
@@ -470,7 +468,7 @@ private fun SettingsPage(
     theme: String, section: String?, onSection: (String?) -> Unit, onTheme: (String) -> Unit,
     crossfade: Float, onCrossfade: (Float) -> Unit, mono: Boolean, onMono: (Boolean) -> Unit,
     normalize: Boolean, onNormalize: (Boolean) -> Unit, volume: String, onVolume: (String) -> Unit,
-    eq: Boolean, onEq: (Boolean) -> Unit, bass: Float, onBass: (Float) -> Unit, treble: Float, onTreble: (Float) -> Unit, songCount: Int, songBytes: Long, appBytes: Long,
+    eq: Boolean, onEq: (Boolean) -> Unit, eqBands: List<Float>, onBand: (Int, Float) -> Unit, songCount: Int, songBytes: Long, appBytes: Long,
     cacheBytes: Long, onCache: () -> Unit, onClearData: () -> Unit
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -544,7 +542,19 @@ private fun SettingsPage(
                         SettingsSwitch("Ecualizador", "Ajusta el sonido durante la reproducción.", eq, onEq, fg, sec)
                         if (eq) {
                             Text("Ecualizador", color=fg, fontSize=18.sp, fontWeight=FontWeight.Bold)
-                            listOf("Graves" to bass, "Agudos" to treble).forEach { (label,value) -> Column { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(label,color=fg);Text("%+d dB".format(value.toInt()),color=AccentBlue)};Slider(value=value,onValueChange=if(label=="Graves")onBass else onTreble,valueRange=-10f..10f,steps=19,colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue)) } }
+                            Row(Modifier.fillMaxWidth().height(180.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                                val frequencies=listOf("60","230","910","3.6k","14k")
+                                eqBands.forEachIndexed { index,value ->
+                                    Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+                                        Text("%+d".format(value.toInt()),color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.SemiBold)
+                                        Box(Modifier.height(132.dp).fillMaxWidth(),contentAlignment=Alignment.Center) {
+                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(130.dp).height(30.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
+                                        }
+                                        Text(frequencies[index],color=sec,fontSize=10.sp)
+                                    }
+                                }
+                            }
+                            Text("Ajustes aplicados al efecto Equalizer de Android cuando el dispositivo lo admite.",color=sec,fontSize=11.sp)
                         }
                     }
                 }
