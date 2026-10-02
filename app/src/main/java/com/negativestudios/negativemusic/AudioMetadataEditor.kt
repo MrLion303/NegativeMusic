@@ -43,7 +43,7 @@ object AudioMetadataEditor {
 
             TagOptionSingleton.getInstance().setAndroid(true)
             val audioFile = AudioFileIO.read(audioTemp)
-            val tag = audioFile.tagOrCreateAndSetDefaultTag()
+            val tag = audioFile.getTagOrCreateAndSetDefault()
 
             tag.setField(FieldKey.TITLE, title)
             tag.setField(FieldKey.ARTIST, artist)
