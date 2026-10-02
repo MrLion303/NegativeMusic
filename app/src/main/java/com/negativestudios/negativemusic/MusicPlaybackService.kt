@@ -15,6 +15,11 @@ class MusicPlaybackService : MediaSessionService() {
             setHandleAudioBecomingNoisy(true)
         }
         PlaybackAudioEffects.attach(this, player.audioSessionId)
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                PlaybackAudioEffects.attach(this@MusicPlaybackService, audioSessionId)
+            }
+        })
         session = MediaSession.Builder(this, player).build()
     }
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
