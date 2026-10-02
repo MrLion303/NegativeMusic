@@ -132,6 +132,7 @@ private fun NegativeMusicApp() {
     var showAddSongsDialog by remember { mutableStateOf(false) }
     var selectedSongUris by remember { mutableStateOf<Set<String>>(emptySet()) }
     var addSongsSearch by remember { mutableStateOf("") }
+    var addSongsSource by remember { mutableStateOf("Todo") }
     var editTarget by remember { mutableStateOf<Playlist?>(null) }
     var menuSong by remember { mutableStateOf<Song?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
@@ -363,7 +364,13 @@ private fun NegativeMusicApp() {
     if (createDialog) PlaylistDialog("Crear playlist","","","",{createDialog=false}) { n,d,c -> val p=Playlist(System.currentTimeMillis().toString(),n,d,c,addSong?.let{listOf(it.uri)}?: emptyList());saveLists(playlists+p);addSong=null;createDialog=false;page="playlist:"+p.id }
     if (showAddSongsDialog) {
         val currentPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
-        val candidates = songs.filter { it.title.contains(addSongsSearch, true) || it.artist.contains(addSongsSearch, true) || it.album.contains(addSongsSearch, true) }
+        val folderNames = songs.map { it.path.substringBeforeLast("/", "Música").substringAfterLast("/") }.distinct().sorted()
+        val sourceUris = when {
+            addSongsSource == "Todo" -> null
+            addSongsSource.startsWith("Playlist:") -> playlists.firstOrNull { it.id == addSongsSource.removePrefix("Playlist:") }?.songs?.toSet()
+            else -> songs.filter { it.path.substringBeforeLast("/", "Música").substringAfterLast("/") == addSongsSource }.map { it.uri }.toSet()
+        }
+        val candidates = songs.filter { sourceUris == null || it.uri in sourceUris }.filter { it.title.contains(addSongsSearch, true) || it.artist.contains(addSongsSearch, true) || it.album.contains(addSongsSearch, true) }
         androidx.compose.ui.window.Dialog(onDismissRequest = { showAddSongsDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(modifier = Modifier.fillMaxWidth(0.94f).heightIn(max = 680.dp), shape = RoundedCornerShape(26.dp), color = Panel, tonalElevation = 8.dp) {
                 Column(Modifier.padding(20.dp)) {
@@ -374,6 +381,12 @@ private fun NegativeMusicApp() {
                         IconButton(onClick={showAddSongsDialog=false}) { Icon(Icons.Default.Close, null, tint=Gray) }
                     }
                     Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){
+                        FilterChip(selected=addSongsSource=="Todo",onClick={addSongsSource="Todo"},label={Text("Todo")})
+                        folderNames.forEach { folder -> FilterChip(selected=addSongsSource==folder,onClick={addSongsSource=folder},label={Text(folder,maxLines=1,overflow=TextOverflow.Ellipsis)}) }
+                        playlists.forEach { pl -> FilterChip(selected=addSongsSource=="Playlist:"+pl.id,onClick={addSongsSource="Playlist:"+pl.id},label={Text(pl.name,maxLines=1,overflow=TextOverflow.Ellipsis)}) }
+                    }
+                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value=addSongsSearch,onValueChange={addSongsSearch=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Buscar en tu música")},leadingIcon={Icon(Icons.Default.Search,null)},shape=RoundedCornerShape(14.dp))
                     Spacer(Modifier.height(8.dp))
                     Text(if(candidates.isEmpty()) "No se encontraron canciones." else "${selectedSongUris.size} seleccionadas · ${candidates.size} disponibles", color=Gray, fontSize=12.sp)
@@ -388,7 +401,7 @@ private fun NegativeMusicApp() {
                                     Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF102D4A)), contentAlignment=Alignment.Center) { Icon(Icons.Default.MusicNote,null,tint=AccentBlue) }
                                     Spacer(Modifier.width(10.dp))
                                     Column(Modifier.weight(1f)) { Text(song.title,color=if(alreadyAdded) Gray else Color.White,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis); Text(song.artist,color=Gray,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }
-                                    if(alreadyAdded) Text("Añadida", color=AccentCyan, fontSize=11.sp) else Checkbox(checked=song.uri in selectedSongUris,onCheckedChange={checked->selectedSongUris=if(checked)selectedSongUris+song.uri else selectedSongUris-song.uri},colors=CheckboxDefaults.colors(checkedColor=AccentBlue))
+                                    if(alreadyAdded) Icon(Icons.Default.CheckCircle,"Ya añadida",tint=AccentCyan,modifier=Modifier.size(22.dp)) else Checkbox(checked=song.uri in selectedSongUris,onCheckedChange={checked->selectedSongUris=if(checked)selectedSongUris+song.uri else selectedSongUris-song.uri},colors=CheckboxDefaults.colors(checkedColor=AccentBlue))
                                 }
                             }
                         }
@@ -420,7 +433,7 @@ private fun NegativeMusicApp() {
         if(page.startsWith("playlist:")) BottomAction("Eliminar de esta playlist",Icons.Default.Delete,fg){val pl=playlists.firstOrNull{page=="playlist:"+it.id};if(pl!=null)saveLists(playlists.map{if(it.id==pl.id)it.copy(songs=it.songs.filterNot{s.uri==it})else it});menuSong=null}
         BottomAction(if(s.uri in favorites)"Quitar de favoritos" else "Añadir a favoritos",Icons.Default.Favorite,fg){favorite(s);menuSong=null}
         BottomAction("Crear playlist con esta canción",Icons.Default.Add,fg){addSong=s;createDialog=true;menuSong=null}
-        playlists.forEach { p -> BottomAction("Añadir a ${p.name}",Icons.Default.QueueMusic,fg){saveLists(playlists.map{if(it.id==p.id&&s.uri !in it.songs)it.copy(songs=it.songs+s.uri)else it});menuSong=null;toast="Añadida a ${p.name}"} }
+        BottomAction("Añadir a una Playlist",Icons.Default.QueueMusic,fg){addSong=s;menuSong=null;showAddSongsDialog=true}
         BottomAction("Ir a la fila de reproducción",Icons.Default.QueueMusic,fg){showQueue=true;menuSong=null}
         BottomAction("Apagado automático",Icons.Default.Timer,fg){showTimer=true;menuSong=null}
         Spacer(Modifier.height(20.dp))
