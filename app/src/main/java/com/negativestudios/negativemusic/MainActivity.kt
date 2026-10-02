@@ -348,7 +348,7 @@ private fun NegativeMusicApp() {
                              Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
                                  Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(28.dp))}
                                  Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==now?.uri)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
-                                 if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
+                                 if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(16.dp))
                                  IconButton(onClick={menuSong=s}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
                              }
                          }
@@ -382,7 +382,7 @@ private fun NegativeMusicApp() {
     }
             if (now != null) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF102C4A)).clickable{showPlayer=true}.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(38.dp))
+                    Icon(Icons.Default.Album,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(38.dp))
                     Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) { Text(now!!.title,color=Color.White,fontWeight=FontWeight.SemiBold,maxLines=1); Text(now!!.artist,color=Color.LightGray,fontSize=11.sp,maxLines=1) }
                     IconButton(onClick={controller?.let { p -> if(p.currentPosition>2000L) p.seekTo(0L) else p.seekToPreviousMediaItem() }}){Icon(Icons.Default.SkipPrevious,"Canción anterior",tint=Color.White)}
@@ -404,7 +404,7 @@ private fun NegativeMusicApp() {
         androidx.compose.ui.window.Dialog(onDismissRequest={playlistDeleteTarget=null}) {
             Surface(Modifier.fillMaxWidth(.9f),shape=RoundedCornerShape(24.dp),color=surface,tonalElevation=10.dp) {
                 Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                    Box(Modifier.size(58.dp).clip(CircleShape).background(AccentBlue.copy(alpha=.14f)),contentAlignment=Alignment.Center){Icon(Icons.Default.DeleteForever,null,tint=AccentBlue,modifier=Modifier.size(30.dp))}
+                    Box(Modifier.size(58.dp).clip(CircleShape).background(AccentBlue.copy(alpha=.14f)),contentAlignment=Alignment.Center){Icon(Icons.Default.DeleteForever,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(30.dp))}
                     Spacer(Modifier.height(12.dp));Text("Borrar playlist",color=fg,fontSize=22.sp,fontWeight=FontWeight.ExtraBold)
                     Spacer(Modifier.height(6.dp));Text(target.name,color=AccentBlue,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Spacer(Modifier.height(10.dp));Text("Se eliminará esta playlist y su lista de canciones. Las canciones originales no se borrarán.",color=secondary,fontSize=13.sp,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
@@ -509,7 +509,7 @@ private fun NegativeMusicApp() {
     editTarget?.let { p -> PlaylistDialog("Editar playlist",p.name,p.description,p.cover,{editTarget=null}) { n,d,c -> saveLists(playlists.map{if(it.id==p.id)it.copy(name=n,description=d,cover=c)else it});editTarget=null } }
     menuSong?.let { s -> androidx.compose.material3.ModalBottomSheet(onDismissRequest={menuSong=null},containerColor=surface,contentColor=fg) {
         Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(9.dp)).background(Color(0xFF102D4A)),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue)}
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(9.dp)).background(Color(0xFF102D4A)),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=if(dark) AccentBlue else fg)}
             Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(s.title,color=fg,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text(s.artist,color=secondary,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
         }
         HorizontalDivider(color=AccentCyan.copy(alpha=.18f))
@@ -538,7 +538,7 @@ private fun NegativeMusicApp() {
         val playerNestedConnection=remember(playerScroll){
             object: NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    if(available.y>0f && playerScroll.value==0){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); return Offset(0f,available.y) }
+                    if(available.y>0f && playerScroll.value==0 && !playerDismissing){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); if(playerDrag>8f) return Offset(0f,available.y) }
                     return Offset.Zero
                 }
                 override suspend fun onPreFling(available: Velocity): Velocity {
@@ -596,7 +596,7 @@ private fun NegativeMusicApp() {
                 Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Text("Fila de reproducción",fontSize=23.sp,fontWeight=FontWeight.ExtraBold,color=fg,modifier=Modifier.weight(1f));TextButton(onClick={controller?.clearMediaItems();showQueue=false}){Text("Vaciar")}}
                 val qp=controller
                 if(qp==null||qp.mediaItemCount==0) Box(Modifier.fillMaxWidth().height(180.dp),contentAlignment=Alignment.Center){Text("La fila está vacía.",color=secondary)}
-                else LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp).padding(bottom=20.dp)){items((0 until qp.mediaItemCount).toList(),key={it}){i->val mi=qp.getMediaItemAt(i);val song=songs.firstOrNull{it.uri==mi.localConfiguration?.uri?.toString()};Row(Modifier.fillMaxWidth().clickable{qp.seekTo(i,0);qp.play();showQueue=false}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(song?.title?:mi.mediaMetadata.title?.toString().orEmpty(),color=if(i==qp.currentMediaItemIndex)AccentBlue else fg,maxLines=1);Text(song?.artist?:mi.mediaMetadata.artist?.toString().orEmpty(),color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={qp.removeMediaItem(i)}){Icon(Icons.Default.Close,"Quitar",tint=secondary)}}}}
+                else LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp).padding(bottom=20.dp)){items((0 until qp.mediaItemCount).toList(),key={it}){i->val mi=qp.getMediaItemAt(i);val song=songs.firstOrNull{it.uri==mi.localConfiguration?.uri?.toString()};Row(Modifier.fillMaxWidth().clickable{qp.seekTo(i,0);qp.play();showQueue=false}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=if(dark) AccentBlue else fg)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(song?.title?:mi.mediaMetadata.title?.toString().orEmpty(),color=if(i==qp.currentMediaItemIndex)AccentBlue else fg,maxLines=1);Text(song?.artist?:mi.mediaMetadata.artist?.toString().orEmpty(),color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={qp.removeMediaItem(i)}){Icon(Icons.Default.Close,"Quitar",tint=secondary)}}}}
             }
         }
     }
@@ -640,9 +640,9 @@ private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Compo
         items(songs,key={it.uri}){s->
             SwipeQueueContainer(s,{enqueue(s)}) {
                 Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(s)},onLongClick={menu(s)}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
-                    Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
+                    Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(28.dp))}
                     Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==current)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
-                    if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
+                    if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(16.dp))
                     IconButton(onClick={menu(s)}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
                 }
             }
@@ -858,7 +858,7 @@ private fun SettingsPage(
 private fun SettingsCategory(title: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, fg: Color, sec: Color, card: Color, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(AccentBlue.copy(alpha = .15f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = AccentBlue) }
+            Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(AccentBlue.copy(alpha = .15f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = if (dark) AccentBlue else fg) }
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) { Text(title, color = fg, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(3.dp)); Text(description, color = sec, fontSize = 12.sp) }
             Icon(Icons.Default.ChevronRight, null, tint = sec)
