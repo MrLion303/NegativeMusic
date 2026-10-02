@@ -154,6 +154,10 @@ private fun NegativeMusicApp() {
     var addSongsSource by remember { mutableStateOf("Selecciona") }
     var editTarget by remember { mutableStateOf<Playlist?>(null) }
     var menuSong by remember { mutableStateOf<Song?>(null) }
+    var metadataSong by remember { mutableStateOf<Song?>(null) }
+    var metadataTitle by remember { mutableStateOf("") }
+    var metadataArtist by remember { mutableStateOf("") }
+    var metadataCover by remember { mutableStateOf("") }
     var addSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
     var playlistDeleteTarget by remember { mutableStateOf<Playlist?>(null) }
@@ -229,16 +233,23 @@ private fun NegativeMusicApp() {
         prefs.edit().putString("playlists", JSONArray().apply { value.forEach { p -> put(JSONObject().put("id",p.id).put("name",p.name).put("description",p.description).put("cover",p.cover).put("songs",JSONArray(p.songs))) } }.toString()).apply()
     }
     fun saveFavorites(value: Set<String>) { favorites = value; prefs.edit().putStringSet("favorites", value).apply() }
-    fun item(s: Song) = MediaItem.Builder().setMediaId(s.uri).setUri(Uri.parse(s.uri)).setMediaMetadata(MediaMetadata.Builder().setTitle(s.title).setArtist(s.artist).setAlbumTitle(s.album).build()).build()
+    fun songTitle(s: Song) = prefs.getString("song_title_${s.uri}", null) ?: s.title
+    fun songArtist(s: Song) = prefs.getString("song_artist_${s.uri}", null) ?: s.artist
+    fun songCover(s: Song) = prefs.getString("song_cover_${s.uri}", null) ?: ""
+    fun item(s: Song) = MediaItem.Builder().setMediaId(s.uri).setUri(Uri.parse(s.uri)).setMediaMetadata(MediaMetadata.Builder().setTitle(songTitle(s)).setArtist(songArtist(s)).setAlbumTitle(s.album).apply { songCover(s).takeIf { it.isNotBlank() }?.let { setArtworkUri(Uri.parse(it)) } }.build()).build()
     fun play(list: List<Song>, start: Song? = null) {
         val p = controller
         if (list.isEmpty()) { toast = "No hay canciones para reproducir."; return }
         if (p == null) { toast = "El reproductor se está iniciando."; return }
         val chosen = start ?: list.first()
-        val rest = list.filter { it.uri != chosen.uri }
+        val chosenIndex = list.indexOfFirst { it.uri == chosen.uri }.coerceAtLeast(0)
+        val manuallyQueued = (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.filter { it in manualQueueUris && it != chosen.uri }.distinct().mapNotNull { uri -> songs.firstOrNull { it.uri == uri } }
+        val queuedUris = manuallyQueued.map { it.uri }.toSet()
+        val remaining = list.drop(chosenIndex + 1).filter { it.uri != chosen.uri && it.uri !in queuedUris }
+        val rest = manuallyQueued + remaining
         val ordered = listOf(chosen) + if (shuffle) rest.shuffled() else rest
         p.setMediaItems(ordered.map(::item), 0, 0L)
-        p.shuffleModeEnabled = false; manualQueueUris=emptySet(); p.repeatMode = repeat; p.prepare(); p.play(); now = chosen
+        p.shuffleModeEnabled = false; manualQueueUris=queuedUris; p.repeatMode = repeat; p.prepare(); p.play(); now = chosen
     }
     fun favorite(s: Song) = saveFavorites(if (s.uri in favorites) favorites - s.uri else favorites + s.uri)
     fun queue(s: Song) { val p = controller; if (p == null) toast = "El reproductor se está iniciando." else if (p.mediaItemCount == 0) play(listOf(s)) else { var insertAt=(p.currentMediaItemIndex+1).coerceIn(0,p.mediaItemCount); while(insertAt<p.mediaItemCount && p.getMediaItemAt(insertAt).mediaId in manualQueueUris) insertAt++; p.addMediaItem(insertAt,item(s)); manualQueueUris=manualQueueUris+s.uri; toast = "Añadida a la fila." } }
@@ -549,6 +560,7 @@ private fun NegativeMusicApp() {
             Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(s.title,color=fg,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text(s.artist,color=secondary,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
         }
         HorizontalDivider(color=AccentCyan.copy(alpha=.18f))
+        BottomAction("Editar datos",Icons.Default.Edit,fg){metadataSong=s;metadataTitle=songTitle(s);metadataArtist=songArtist(s);metadataCover=songCover(s);menuSong=null}
         BottomAction("Añadir a la fila",Icons.Default.PlaylistAdd,fg){queue(s);menuSong=null}
         if(page.startsWith("playlist:")) BottomAction("Eliminar de esta playlist",Icons.Default.Delete,fg){val pl=playlists.firstOrNull{page=="playlist:"+it.id};if(pl!=null)saveLists(playlists.map{if(it.id==pl.id)it.copy(songs=it.songs.filterNot{s.uri==it})else it});menuSong=null}
         BottomAction(if(s.uri in favorites)"Quitar de favoritos" else "Añadir a favoritos",Icons.Default.Favorite,fg){favorite(s);menuSong=null}
