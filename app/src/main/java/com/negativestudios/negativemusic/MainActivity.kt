@@ -368,6 +368,16 @@ page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favo
                 }
             }
             }
+    if (toast.isNotBlank()) {
+        Box(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp).offset{IntOffset(toastOffset.value.roundToInt(),0)}.clip(RoundedCornerShape(14.dp)).background(if(dark)Panel else Color.White).pointerInput(toast){
+            detectHorizontalDragGestures(
+                onHorizontalDrag={change,amount->change.consume();scope.launch{toastOffset.snapTo(toastOffset.value+amount)}},
+                onDragEnd={if(abs(toastOffset.value)>90f){val target=if(toastOffset.value>0f)900f else -900f;scope.launch{toastOffset.animateTo(target,tween(220));toast=""}}else scope.launch{toastOffset.animateTo(0f,tween(180))}},
+                onDragCancel={scope.launch{toastOffset.animateTo(0f,tween(180))}}
+            )
+        }.padding(horizontal=16.dp,vertical=10.dp)
+        ){Text(toast,color=if(dark)Color.White else Color(0xFF171717),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)}
+    }
             if (now != null) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF102C4A)).clickable{showPlayer=true}.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
                     Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(38.dp))
@@ -387,16 +397,6 @@ page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favo
                 }
             }
         }
-    }
-    if (toast.isNotBlank()) {
-        Box(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp).offset{IntOffset(toastOffset.value.roundToInt(),0)}.clip(RoundedCornerShape(14.dp)).background(if(dark)Panel else Color.White).pointerInput(toast){
-            detectHorizontalDragGestures(
-                onHorizontalDrag={change,amount->change.consume();scope.launch{toastOffset.snapTo(toastOffset.value+amount)}},
-                onDragEnd={if(abs(toastOffset.value)>90f){val target=if(toastOffset.value>0f)900f else -900f;scope.launch{toastOffset.animateTo(target,tween(220));toast=""}}else scope.launch{toastOffset.animateTo(0f,tween(180))}},
-                onDragCancel={scope.launch{toastOffset.animateTo(0f,tween(180))}}
-            )
-        }.padding(horizontal=16.dp,vertical=10.dp)
-        ){Text(toast,color=if(dark)Color.White else Color(0xFF171717),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)}
     }
     if (playlistDeleteTarget != null) { val target=playlistDeleteTarget!!; AlertDialog(onDismissRequest={playlistDeleteTarget=null},title={Text("Borrar playlist")},text={Text("¿Seguro que quieres borrar \"${target.name}\"? Esta acción no se puede deshacer.")},confirmButton={TextButton(onClick={saveLists(playlists.filterNot{it.id==target.id});if(page=="playlist:"+target.id)page=playlistOrigin;playlistDeleteTarget=null;toast="Playlist eliminada."}){Text("Borrar")}},dismissButton={TextButton(onClick={playlistDeleteTarget=null}){Text("Cancelar")}}) }
     if (createDialog) PlaylistDialog("Crear playlist","","","",{createDialog=false}) { n,d,c -> val p=Playlist(System.currentTimeMillis().toString(),n,d,c,addSong?.let{listOf(it.uri)}?: emptyList());saveLists(playlists+p);addSong=null;createDialog=false;page="playlist:"+p.id }
