@@ -324,10 +324,13 @@ private fun NegativeMusicApp() {
                             Text(selectedPlaylist?.description.orEmpty(),Modifier.padding(horizontal=22.dp),color=secondary,maxLines=2,overflow=TextOverflow.Ellipsis)
                             val playlistDuration = visibleSongs.sumOf { it.duration }
                             Text("${visibleSongs.size} canciones · ${time(playlistDuration)}",Modifier.padding(start=22.dp,end=22.dp,top=4.dp),color=secondary,fontSize=12.sp)
-                            Row(Modifier.fillMaxWidth().padding(14.dp, 10.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
-                                Button(onClick={if(visibleSongs.isNotEmpty())play(visibleSongs) else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,null);Spacer(Modifier.width(6.dp));Text("Reproducir")}
-                                OutlinedButton(onClick={selectedSongUris=emptySet();addSongsSearch="";addSongsSource="Selecciona";showAddSongsDialog=true},modifier=Modifier.weight(1f)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Añadir canción")}
-                                IconButton(onClick={if(visibleSongs.isNotEmpty()){shuffle=true;play(visibleSongs.shuffled())}else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.size(44.dp)){Icon(Icons.Default.Shuffle,"Modo aleatorio",tint=if(shuffle)AccentBlue else fg)}
+                             Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+                                 IconButton(onClick={playlistDeleteTarget=selectedPlaylist},modifier=Modifier.size(44.dp)){Icon(Icons.Default.MoreVert,"Opciones de playlist",tint=if(dark)AccentBlue else fg)}
+                                 IconButton(onClick={if(visibleSongs.isNotEmpty()){shuffle=true;play(visibleSongs.shuffled())}else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.size(44.dp)){Icon(Icons.Default.Shuffle,"Modo aleatorio",tint=if(dark)AccentBlue else fg)}
+                                 IconButton(onClick={selectedSongUris=emptySet();addSongsSearch="";addSongsSource="";showAddSongsDialog=true},modifier=Modifier.size(44.dp)){Icon(Icons.Default.Add,"Añadir canción",tint=if(dark)AccentBlue else fg)}
+                                 Spacer(Modifier.weight(1f))
+                                 FilledIconButton(onClick={if(visibleSongs.isNotEmpty()){play(visibleSongs);showPlayer=true}else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.size(46.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,"Reproducir")}
+                             }
                             }
                         }
                       }
@@ -392,13 +395,12 @@ private fun NegativeMusicApp() {
     if (createDialog) PlaylistDialog("Crear playlist","","","",{createDialog=false}) { n,d,c -> val p=Playlist(System.currentTimeMillis().toString(),n,d,c,addSong?.let{listOf(it.uri)}?: emptyList());saveLists(playlists+p);addSong=null;createDialog=false;page="playlist:"+p.id }
     if (showAddSongsDialog) {
         val currentPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
-        val folderNames = songs.map { it.path.substringBeforeLast("/", "Música").substringAfterLast("/") }.distinct().sorted()
         val sourceUris = when {
-            addSongsSource == "Selecciona" -> emptySet()
-            addSongsSource.startsWith("Playlist:") -> playlists.firstOrNull { it.id == addSongsSource.removePrefix("Playlist:") }?.songs?.toSet()
-            else -> songs.filter { it.path.substringBeforeLast("/", "Música").substringAfterLast("/") == addSongsSource }.map { it.uri }.toSet()
+            addSongsSource == "Descargas" -> downloadedSongs.map { it.uri }.toSet()
+            addSongsSource.startsWith("Playlist:") -> playlists.firstOrNull { it.id == addSongsSource.removePrefix("Playlist:") }?.songs?.toSet() ?: emptySet()
+            else -> emptySet()
         }
-        val candidates = songs.filter { sourceUris == null || it.uri in sourceUris }.filter { it.title.contains(addSongsSearch, true) || it.artist.contains(addSongsSearch, true) || it.album.contains(addSongsSearch, true) }
+        val candidates = songs.filter { it.uri in sourceUris }.filter { it.title.contains(addSongsSearch, true) || it.artist.contains(addSongsSearch, true) || it.album.contains(addSongsSearch, true) }
         androidx.compose.ui.window.Dialog(onDismissRequest = { showAddSongsDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(modifier = Modifier.fillMaxWidth(0.94f).heightIn(max = 680.dp), shape = RoundedCornerShape(26.dp), color = Panel, tonalElevation = 8.dp) {
                 Column(Modifier.padding(20.dp)) {
@@ -409,17 +411,12 @@ private fun NegativeMusicApp() {
                         IconButton(onClick={showAddSongsDialog=false}) { Icon(Icons.Default.Close, null, tint=Gray) }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){
-                        folderNames.forEach { folder -> FilterChip(selected=addSongsSource==folder,onClick={addSongsSource=folder},label={Text(folder,maxLines=1,overflow=TextOverflow.Ellipsis)}) }
-                        playlists.forEach { pl -> FilterChip(selected=addSongsSource=="Playlist:"+pl.id,onClick={addSongsSource="Playlist:"+pl.id},label={Text(pl.name,maxLines=1,overflow=TextOverflow.Ellipsis)}) }
-                    }
-                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value=addSongsSearch,onValueChange={addSongsSearch=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Buscar en tu música")},leadingIcon={Icon(Icons.Default.Search,null)},shape=RoundedCornerShape(14.dp))
                     Spacer(Modifier.height(8.dp))
-                    Text(if(addSongsSource=="Selecciona") "Elige una carpeta o playlist para ver sus canciones." else if(candidates.isEmpty()) "No se encontraron canciones." else "${selectedSongUris.size} seleccionadas · ${candidates.size} disponibles", color=Gray, fontSize=12.sp)
+                    Text(if(addSongsSource.isBlank()) "Selecciona una fuente abajo." else if(candidates.isEmpty()) "No se encontraron canciones." else "${selectedSongUris.size} seleccionadas · ${candidates.size} disponibles", color=Gray, fontSize=12.sp)
                     Spacer(Modifier.height(6.dp))
                     if (candidates.isEmpty()) {
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) { Text(if(songs.isEmpty()) "Primero actualiza la biblioteca para detectar música." else if(addSongsSource=="Selecciona") "Selecciona una carpeta o playlist arriba." else "Prueba con otro título o artista.", color=Gray) }
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) { Text(if(songs.isEmpty()) "Primero actualiza la biblioteca para detectar música." else if(addSongsSource.isBlank()) "Selecciona una fuente abajo." else "Prueba con otro título o artista.", color=Gray) }
                     } else {
                         LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(3.dp)) {
                             items(candidates, key={it.uri}) { song ->
@@ -772,7 +769,6 @@ private fun SettingsPage(
                         Text("NegativeMusic", color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text("Versión 0.1.0 Beta", color = AccentBlue, fontWeight = FontWeight.SemiBold)
                         Text("Reproductor local de NegativeStudios.", color = sec)
-                        Text("Interfaz azul y cian inspirada en el launcher NegativeStudios.", color = sec, fontSize = 13.sp)
                     }
                 }
             }
