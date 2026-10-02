@@ -657,6 +657,75 @@ private fun NegativeMusicApp() {
         Spacer(Modifier.height(20.dp))
     } }
 
+    metadataSong?.let { s ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { metadataSong = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(Modifier.fillMaxWidth(.92f).heightIn(max=620.dp),shape=RoundedCornerShape(24.dp),color=surface,tonalElevation=10.dp) {
+                Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Editar datos de la canción",color=fg,fontSize=21.sp,fontWeight=FontWeight.ExtraBold)
+                            Text("Los cambios se escribirán en el archivo de audio.",color=secondary,fontSize=12.sp)
+                        }
+                        IconButton(onClick={metadataSong=null}){Icon(Icons.Default.Close,"Cerrar",tint=secondary)}
+                    }
+                    OutlinedTextField(value=metadataTitle,onValueChange={metadataTitle=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Título")})
+                    OutlinedTextField(value=metadataArtist,onValueChange={metadataArtist=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Artista")})
+                    val coverPicker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->if(uri!=null)metadataCover=uri.toString()}
+                    if(metadataCover.isNotBlank()) {
+                        AsyncImage(model=metadataCover,contentDescription="Portada seleccionada",modifier=Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
+                    }
+                    OutlinedButton(onClick={coverPicker.launch("image/*")},modifier=Modifier.fillMaxWidth()){
+                        Icon(Icons.Default.Image,null);Spacer(Modifier.width(8.dp));Text(if(metadataCover.isBlank()) "Elegir portada" else "Cambiar portada")
+                    }
+                    Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick={metadataSong=null},modifier=Modifier.weight(1f)){Text("Cancelar")}
+                        Button(
+                            onClick={
+                                val pending=PendingMetadataEdit(
+                                    s.uri,
+                                    metadataTitle.trim().ifBlank{s.title},
+                                    metadataArtist.trim().ifBlank{s.artist},
+                                    metadataCover
+                                )
+                                pendingMetadataEdit=pending
+                                metadataSong=null
+                                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R) {
+                                    try {
+                                        val request=MediaStore.createWriteRequest(ctx.contentResolver,listOf(Uri.parse(s.uri)))
+                                        metadataWriteLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                                    } catch(_:Exception) {
+                                        pendingMetadataEdit=null
+                                        toast="No se pudo solicitar permiso de escritura."
+                                    }
+                                } else {
+                                    scope.launch {
+                                        val success=withContext(Dispatchers.IO){
+                                            runCatching{
+                                                AudioMetadataEditor.write(ctx,Uri.parse(pending.songUri),pending.title,pending.artist,pending.coverUri.takeIf{it.isNotBlank()}?.let(Uri::parse))
+                                            }.isSuccess
+                                        }
+                                        if(success){
+                                            prefs.edit().putString("song_title_${pending.songUri}",pending.title).putString("song_artist_${pending.songUri}",pending.artist).putString("song_cover_${pending.songUri}",pending.coverUri).apply()
+                                            songs=withContext(Dispatchers.IO){scanMusic(ctx)}
+                                            toast="Datos de la canción guardados en el archivo."
+                                        } else toast="No se pudieron escribir los metadatos del archivo."
+                                        pendingMetadataEdit=null
+                                    }
+                                }
+                            },
+                            enabled=metadataTitle.isNotBlank() && metadataArtist.isNotBlank(),
+                            modifier=Modifier.weight(1f),
+                            colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)
+                        ){Icon(Icons.Default.Save,null);Spacer(Modifier.width(6.dp));Text("Guardar")}
+                    }
+                }
+            }
+        }
+    }
+
     if (showPlayer && now != null) {
         val playerScroll = rememberScrollState()
                 LaunchedEffect(seekFeedback) { if(seekFeedback!=0){ delay(900); seekFeedback=0 } }
