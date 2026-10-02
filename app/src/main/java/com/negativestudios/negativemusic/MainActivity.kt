@@ -202,8 +202,10 @@ private fun NegativeMusicApp() {
         val p = controller
         if (list.isEmpty()) { toast = "No hay canciones para reproducir."; return }
         if (p == null) { toast = "El reproductor se está iniciando."; return }
-        p.setMediaItems(list.map(::item), start?.let { s -> list.indexOfFirst { it.uri == s.uri }.coerceAtLeast(0) } ?: 0, 0L)
-        p.shuffleModeEnabled = false; manualQueueUris=emptySet(); p.repeatMode = repeat; p.prepare(); p.play(); now = start ?: list.first()
+        val chosen = start ?: list.first()
+        val ordered = if(shuffle) list.filter { it.uri != chosen.uri }.shuffled().let { listOf(chosen) + it } else list
+        p.setMediaItems(ordered.map(::item), 0, 0L)
+        p.shuffleModeEnabled = false; manualQueueUris=emptySet(); p.repeatMode = repeat; p.prepare(); p.play(); now = chosen
     }
     fun favorite(s: Song) = saveFavorites(if (s.uri in favorites) favorites - s.uri else favorites + s.uri)
     fun queue(s: Song) { val p = controller; if (p == null) toast = "El reproductor se está iniciando." else if (p.mediaItemCount == 0) play(listOf(s)) else { p.addMediaItem(item(s)); manualQueueUris=manualQueueUris+s.uri; toast = "Añadida a la fila." } }
