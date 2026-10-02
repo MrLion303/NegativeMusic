@@ -115,6 +115,9 @@ private fun NegativeMusicApp() {
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var toast by remember { mutableStateOf("") }
     var createDialog by remember { mutableStateOf(false) }
+    var showAddSongsDialog by remember { mutableStateOf(false) }
+    var selectedSongUris by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var addSongsSearch by remember { mutableStateOf("") }
     var editTarget by remember { mutableStateOf<Playlist?>(null) }
     var menuSong by remember { mutableStateOf<Song?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
@@ -212,11 +215,11 @@ private fun NegativeMusicApp() {
             Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 page == "Ajustes" -> SettingsPage(theme, settingsSection, { settingsSection = it }, { theme=it; prefs.edit().putString("theme",it).apply() }, crossfade, { crossfade=it; prefs.edit().putInt("crossfade",it.toInt()).apply() }, mono, { mono=it; prefs.edit().putBoolean("mono",it).apply() }, normalize, { normalize=it; prefs.edit().putBoolean("normalize",it).apply(); controller?.volume=if(it) .85f else 1f }, volume, { volume=it; prefs.edit().putString("volume",it).apply(); controller?.volume=when(it){"Bajo"->.55f;"Alto"->1f;else->.8f} }, eqOn, { eqOn=it; prefs.edit().putBoolean("eq",it).apply(); eqDialog=true }, songs.size, songs.sumOf{it.size}, ctx.filesDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, ctx.cacheDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, { ctx.cacheDir.deleteRecursively(); ctx.cacheDir.mkdirs(); toast="Caché limpiada." }, { clearDataDialog=true })
-                page == "Buscar" -> Column {
+                page == "Buscar" -> Column(Modifier.fillMaxSize()) {
                     OutlinedTextField(search,{search=it},Modifier.fillMaxWidth().padding(horizontal=16.dp),placeholder={Text("¿Qué quieres escuchar?")},leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true)
-                    SongRows(visibleSongs,favorites,fg,secondary,now?.uri,{play(visibleSongs,it)},{menuSong=it},{favorite(it)})
+                    SongRows(visibleSongs,favorites,fg,secondary,now?.uri,{play(visibleSongs,it)},{menuSong=it},{favorite(it)}, Modifier.weight(1f))
                 }
-                page == "Biblioteca" -> Column {
+                page == "Biblioteca" -> Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal=14.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         Button(onClick={play(songs.shuffled())},colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.Black)){Icon(Icons.Default.Shuffle,null);Text("Aleatorio")}
                         OutlinedButton(onClick={createDialog=true}){Icon(Icons.Default.Add,null);Text("Playlist")}
@@ -226,20 +229,21 @@ private fun NegativeMusicApp() {
                         FilterChip(page=="Biblioteca",{page="Biblioteca"},label={Text("Canciones")})
                         FilterChip(page=="Favoritos",{page="Favoritos"},label={Text("Favoritos")})
                     }
-                    if (page=="Biblioteca") SongRows(songs,favorites,fg,secondary,now?.uri,{play(songs,it)},{menuSong=it},{favorite(it)})
-                    else SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it)},{menuSong=it},{favorite(it)})
+                    if (page=="Biblioteca") SongRows(songs,favorites,fg,secondary,now?.uri,{play(songs,it)},{menuSong=it},{favorite(it)}, Modifier.weight(1f))
+                    else SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it)},{menuSong=it},{favorite(it)}, Modifier.weight(1f))
                 }
-                page.startsWith("playlist:") -> Column {
-                    Text(selectedPlaylist?.name ?: "Playlist",Modifier.padding(20.dp),color=fg,fontSize=27.sp,fontWeight=FontWeight.ExtraBold)
-                    Text(selectedPlaylist?.description.orEmpty(),Modifier.padding(horizontal=20.dp),color=secondary)
-                    Row(Modifier.padding(12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Button(onClick={play(visibleSongs.shuffled())},colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.Black)){Icon(Icons.Default.PlayArrow,null);Text("Reproducir")}
-                        OutlinedButton(onClick={editTarget=selectedPlaylist}){Icon(Icons.Default.Edit,null);Text("Editar")}
+                page.startsWith("playlist:") -> Column(Modifier.fillMaxSize()) {
+                    Text(selectedPlaylist?.name ?: "Playlist",Modifier.padding(start=20.dp,end=20.dp,top=14.dp,bottom=4.dp),color=fg,fontSize=27.sp,fontWeight=FontWeight.ExtraBold)
+                    Text(selectedPlaylist?.description.orEmpty(),Modifier.padding(horizontal=20.dp),color=secondary,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Row(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Button(onClick={if(visibleSongs.isNotEmpty())play(visibleSongs.shuffled()) else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,null);Spacer(Modifier.width(6.dp));Text("Reproducir")}
+                        OutlinedButton(onClick={selectedSongUris=emptySet();addSongsSearch="";showAddSongsDialog=true},modifier=Modifier.weight(1f)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Añadir canción")}
+                        IconButton(onClick={editTarget=selectedPlaylist}){Icon(Icons.Default.Edit,"Editar playlist",tint=fg)}
                     }
-                    SongRows(visibleSongs,favorites,fg,secondary,now?.uri,{play(visibleSongs,it)},{menuSong=it},{favorite(it)})
+                    SongRows(visibleSongs,favorites,fg,secondary,now?.uri,{play(visibleSongs,it)},{menuSong=it},{favorite(it)}, Modifier.weight(1f))
                 }
-                page == "Favoritos" -> Column { Text("Tus canciones favoritas",Modifier.padding(20.dp),color=fg,fontSize=26.sp,fontWeight=FontWeight.Bold); SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it)},{menuSong=it},{favorite(it)}) }
-                else -> LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(bottom=8.dp)) {
+                page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favoritas",Modifier.padding(20.dp),color=fg,fontSize=26.sp,fontWeight=FontWeight.Bold); SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it)},{menuSong=it},{favorite(it)}, Modifier.weight(1f)) }
+                else -> LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=8.dp)) {
                     item { Column(Modifier.padding(horizontal=20.dp, vertical=10.dp)) { Text("Tu música, tu mundo.",color=fg,fontSize=28.sp,fontWeight=FontWeight.ExtraBold); Text(if(loading)"Buscando música…" else "${songs.size} canciones en este dispositivo",color=secondary) } }
                     item { Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                         HomeTile("Reproducir todo","Tu biblioteca",Icons.Default.PlayArrow,Modifier.weight(1f)){play(songs)}
@@ -275,6 +279,54 @@ private fun NegativeMusicApp() {
     }
     if (toast.isNotBlank()) AlertDialog(onDismissRequest={toast=""},text={Text(toast)},confirmButton={TextButton(onClick={toast=""}){Text("OK")}})
     if (createDialog) PlaylistDialog("Crear playlist","","","",{createDialog=false}) { n,d,c -> val p=Playlist(System.currentTimeMillis().toString(),n,d,c,addSong?.let{listOf(it.uri)}?: emptyList());saveLists(playlists+p);addSong=null;createDialog=false;page="playlist:"+p.id }
+    if (showAddSongsDialog) {
+        val currentPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
+        val candidates = songs.filter { it.title.contains(addSongsSearch, true) || it.artist.contains(addSongsSearch, true) || it.album.contains(addSongsSearch, true) }
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showAddSongsDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            Surface(modifier = Modifier.fillMaxWidth(0.94f).heightIn(max = 680.dp), shape = RoundedCornerShape(26.dp), color = Panel, tonalElevation = 8.dp) {
+                Column(Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(AccentBlue.copy(alpha=.18f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.PlaylistAdd, null, tint=AccentCyan) }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) { Text("Añadir canciones", color=Color.White, fontSize=21.sp, fontWeight=FontWeight.Bold); Text(currentPlaylist?.name ?: "Playlist", color=Gray, fontSize=12.sp) }
+                        IconButton(onClick={showAddSongsDialog=false}) { Icon(Icons.Default.Close, null, tint=Gray) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(value=addSongsSearch,onValueChange={addSongsSearch=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Buscar en tu música")},leadingIcon={Icon(Icons.Default.Search,null)},shape=RoundedCornerShape(14.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text(if(candidates.isEmpty()) "No se encontraron canciones." else "${selectedSongUris.size} seleccionadas · ${candidates.size} disponibles", color=Gray, fontSize=12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    if (candidates.isEmpty()) {
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) { Text(if(songs.isEmpty()) "Primero actualiza la biblioteca para detectar música." else "Prueba con otro título o artista.", color=Gray) }
+                    } else {
+                        LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                            items(candidates, key={it.uri}) { song ->
+                                val alreadyAdded = currentPlaylist?.songs?.contains(song.uri) == true
+                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(enabled=!alreadyAdded) { selectedSongUris = if(song.uri in selectedSongUris) selectedSongUris-song.uri else selectedSongUris+song.uri }.padding(horizontal=7.dp, vertical=8.dp), verticalAlignment=Alignment.CenterVertically) {
+                                    Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF102D4A)), contentAlignment=Alignment.Center) { Icon(Icons.Default.MusicNote,null,tint=AccentBlue) }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) { Text(song.title,color=if(alreadyAdded) Gray else Color.White,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis); Text(song.artist,color=Gray,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }
+                                    if(alreadyAdded) Text("Añadida", color=AccentCyan, fontSize=11.sp) else Checkbox(checked=song.uri in selectedSongUris,onCheckedChange={checked->selectedSongUris=if(checked)selectedSongUris+song.uri else selectedSongUris-song.uri},colors=CheckboxDefaults.colors(checkedColor=AccentBlue))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick={showAddSongsDialog=false},modifier=Modifier.weight(1f)) { Text("Cancelar") }
+                        Button(onClick={
+                            if(currentPlaylist!=null) {
+                                val merged=(currentPlaylist.songs+selectedSongUris).distinct()
+                                saveLists(playlists.map{if(it.id==currentPlaylist.id)it.copy(songs=merged)else it})
+                                toast=if(selectedSongUris.isEmpty()) "No seleccionaste canciones nuevas." else "Se añadieron ${merged.size-currentPlaylist.songs.size} canciones."
+                            }
+                            showAddSongsDialog=false
+                        },enabled=selectedSongUris.isNotEmpty(),modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)) { Text("Añadir (${selectedSongUris.size})") }
+                    }
+                }
+            }
+        }
+    }
     editTarget?.let { p -> PlaylistDialog("Editar playlist",p.name,p.description,p.cover,{editTarget=null}) { n,d,c -> saveLists(playlists.map{if(it.id==p.id)it.copy(name=n,description=d,cover=c)else it});editTarget=null } }
     menuSong?.let { s -> AlertDialog(onDismissRequest={menuSong=null},title={Text(s.title)},text={Column {
         Text(s.artist,color=Gray)
@@ -297,9 +349,9 @@ private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playli
     (0 until a.length()).map { i -> val o=a.getJSONObject(i);val ss=o.optJSONArray("songs")?:JSONArray();Playlist(o.optString("id"),o.optString("name"),o.optString("description"),o.optString("cover"),(0 until ss.length()).map{ss.getString(it)}) }
 } catch (_:Exception){emptyList()}
 
-@Composable private fun SongRows(songs:List<Song>,favorites:Set<String>,fg:Color,secondary:Color,current:String?,play:(Song)->Unit,menu:(Song)->Unit,favorite:(Song)->Unit) {
+@Composable private fun SongRows(songs:List<Song>,favorites:Set<String>,fg:Color,secondary:Color,current:String?,play:(Song)->Unit,menu:(Song)->Unit,favorite:(Song)->Unit,modifier: Modifier = Modifier.fillMaxWidth()) {
     if(songs.isEmpty()) Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)}
-    else LazyColumn(Modifier.fillMaxWidth(),contentPadding=PaddingValues(bottom=12.dp)){items(songs,key={it.uri}){s->Row(Modifier.fillMaxWidth().clickable{play(s)}.padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
+    else LazyColumn(modifier,contentPadding=PaddingValues(bottom=12.dp)){items(songs,key={it.uri}){s->Row(Modifier.fillMaxWidth().clickable{play(s)}.padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
         Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(Brush.linearGradient(listOf(Color(0xFF123C67),Color(0xFF252525)))),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
         Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==current)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
         if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
