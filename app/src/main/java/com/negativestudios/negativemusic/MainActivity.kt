@@ -600,7 +600,6 @@ private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playli
 } catch (_:Exception){emptyList()}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Composable () -> Unit) {
     val offset = remember(song.uri) { Animatable(0f) }
