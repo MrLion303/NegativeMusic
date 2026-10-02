@@ -341,7 +341,6 @@ private fun NegativeMusicApp() {
                             }
                         }
                       }
-                    }
                     if(visibleSongs.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)} }
                      items(visibleSongs,key={it.uri}) { s ->
                          SwipeQueueContainer(s,{queue(s)}) {
