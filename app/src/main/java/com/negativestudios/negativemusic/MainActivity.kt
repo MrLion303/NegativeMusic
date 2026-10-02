@@ -16,6 +16,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import coil.compose.AsyncImage
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -31,11 +33,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -139,11 +146,16 @@ private fun NegativeMusicApp() {
     var menuSong by remember { mutableStateOf<Song?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
+    var playlistDeleteTarget by remember { mutableStateOf<Playlist?>(null) }
     var showQueue by remember { mutableStateOf(false) }
     var showPlayer by remember { mutableStateOf(false) }
     var showTimer by remember { mutableStateOf(false) }
     var seekFeedback by remember { mutableIntStateOf(0) }
+    var seekFeedbackSide by remember { mutableIntStateOf(0) }
+    var seekRippleKey by remember { mutableIntStateOf(0) }
     var playerDrag by remember { mutableFloatStateOf(0f) }
+    var lyricsEditing by remember { mutableStateOf(false) }
+    val toastOffset = remember { Animatable(0f) }
     var timerMins by remember { mutableIntStateOf(30) }
     var deadline by remember { mutableLongStateOf(0L) }
     var crossfade by remember { mutableFloatStateOf(prefs.getInt("crossfade", 0).toFloat()) }
@@ -231,7 +243,8 @@ private fun NegativeMusicApp() {
         }
     }
     val selectedPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
-    LaunchedEffect(now?.uri) { lyricsText = now?.uri?.let { prefs.getString("lyrics_$it", "") } ?: ""; lyricsExpanded=false }
+    LaunchedEffect(now?.uri) { lyricsText = now?.uri?.let { prefs.getString("lyrics_$it", "") } ?: ""; lyricsExpanded=false; lyricsEditing=false }
+    LaunchedEffect(toast) { if (toast.isNotBlank()) { toastOffset.snapTo(0f); delay(5000); if (toast.isNotBlank()) toast = "" } }
     val downloadedSongs = songs.filter { song -> song.path.replace('\\', '/').lowercase(Locale.ROOT).let { p -> "/download/" in p || p.endsWith("/download") || "/downloads/" in p || p.endsWith("/downloads") } }
     val visibleSongs = when {
         page == "Favoritos" -> songs.filter { it.uri in favorites }
