@@ -1,6 +1,7 @@
 package com.negativestudios.negativemusic
 
 import android.Manifest
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
@@ -15,6 +16,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
 import coil.compose.AsyncImage
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -87,6 +89,7 @@ private val Gray = Color(0xFFB3C0CE)
 
 data class Song(val uri: String, val title: String, val artist: String, val album: String, val duration: Long, val size: Long, val albumId: Long, val path: String = "")
 data class Playlist(val id: String, val name: String, val description: String = "", val cover: String = "", val songs: List<String> = emptyList())
+data class PendingMetadataEdit(val songUri: String, val title: String, val artist: String, val coverUri: String)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -158,6 +161,7 @@ private fun NegativeMusicApp() {
     var metadataTitle by remember { mutableStateOf("") }
     var metadataArtist by remember { mutableStateOf("") }
     var metadataCover by remember { mutableStateOf("") }
+    var pendingMetadataEdit by remember { mutableStateOf<PendingMetadataEdit?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
     var playlistDeleteTarget by remember { mutableStateOf<Playlist?>(null) }
@@ -193,6 +197,48 @@ private fun NegativeMusicApp() {
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         scope.launch { if (ok) songs = withContext(Dispatchers.IO) { scanMusic(ctx) }; loading = false }
+    }
+    val metadataWriteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val pending = pendingMetadataEdit
+        pendingMetadataEdit = null
+        if (result.resultCode == Activity.RESULT_OK && pending != null) {
+            scope.launch {
+                val success = withContext(Dispatchers.IO) {
+                    runCatching {
+                        AudioMetadataEditor.write(
+                            ctx,
+                            Uri.parse(pending.songUri),
+                            pending.title,
+                            pending.artist,
+                            pending.coverUri.takeIf { it.isNotBlank() }?.let(Uri::parse)
+                        )
+                    }.isSuccess
+                }
+                if (success) {
+                    prefs.edit()
+                        .putString("song_title_${pending.songUri}", pending.title)
+                        .putString("song_artist_${pending.songUri}", pending.artist)
+                        .putString("song_cover_${pending.songUri}", pending.coverUri)
+                        .apply()
+                    songs = withContext(Dispatchers.IO) { scanMusic(ctx) }
+                    val p = controller
+                    val index = p?.let { player -> (0 until player.mediaItemCount).firstOrNull { i -> player.getMediaItemAt(i).mediaId == pending.songUri } }
+                    if (p != null && index != null) {
+                        val wasPlaying = p.isPlaying
+                        val savedPosition = p.currentPosition
+                        p.replaceMediaItem(index, songs.firstOrNull { it.uri == pending.songUri }?.let { item(it) } ?: p.getMediaItemAt(index))
+                        p.seekTo(index, savedPosition)
+                        if (wasPlaying) p.play()
+                    }
+                    metadataSong = null
+                    toast = "Datos de la canción guardados en el archivo."
+                } else {
+                    toast = "No se pudieron escribir los metadatos del archivo."
+                }
+            }
+        } else if (pending != null) {
+            toast = "No se concedió permiso para modificar el archivo."
+        }
     }
     DisposableEffect(ctx) {
         val future: ListenableFuture<MediaController> = MediaController.Builder(ctx, SessionToken(ctx, ComponentName(ctx, MusicPlaybackService::class.java))).buildAsync()
