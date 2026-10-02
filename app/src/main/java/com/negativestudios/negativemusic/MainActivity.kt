@@ -177,7 +177,6 @@ private fun NegativeMusicApp() {
                 position = 0L; duration = p.duration.coerceAtLeast(0)
             }
             override fun onRepeatModeChanged(repeatModeValue: Int) { repeat = repeatModeValue }
-            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { shuffle = shuffleModeEnabled }
         }
         p.addListener(listener)
         now = songs.firstOrNull { it.uri == p.currentMediaItem?.localConfiguration?.uri?.toString() }
@@ -208,6 +207,21 @@ private fun NegativeMusicApp() {
     }
     fun favorite(s: Song) = saveFavorites(if (s.uri in favorites) favorites - s.uri else favorites + s.uri)
     fun queue(s: Song) { val p = controller; if (p == null) toast = "El reproductor se está iniciando." else if (p.mediaItemCount == 0) play(listOf(s)) else { p.addMediaItem(item(s)); manualQueueUris=manualQueueUris+s.uri; toast = "Añadida a la fila." } }
+    fun toggleShuffleQueue() {
+        val p=controller ?: return
+        val next=!shuffle
+        shuffle=next
+        p.shuffleModeEnabled=false
+        if(p.mediaItemCount>1) {
+            val all=(0 until p.mediaItemCount).map{p.getMediaItemAt(it)}
+            val current=p.currentMediaItem
+            val pinned=all.filter{it.mediaId in manualQueueUris && it.mediaId!=current?.mediaId}
+            val movable=all.filter{it.mediaId !in manualQueueUris && it.mediaId!=current?.mediaId}
+            val ordered=if(next) movable.shuffled() else movable
+            val rebuilt=listOfNotNull(current)+ordered+pinned
+            if(rebuilt.isNotEmpty()){p.setMediaItems(rebuilt,0,p.currentPosition);p.prepare();p.play()}
+        }
+    }
     val selectedPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
     LaunchedEffect(now?.uri) { lyricsText = now?.uri?.let { prefs.getString("lyrics_$it", "") } ?: ""; lyricsExpanded=false }
     val downloadedSongs = songs.filter { song -> song.path.replace('\\', '/').lowercase(Locale.ROOT).let { p -> "/download/" in p || p.endsWith("/download") || "/downloads/" in p || p.endsWith("/downloads") } }
@@ -307,7 +321,7 @@ private fun NegativeMusicApp() {
                     item { Column(Modifier.padding(horizontal=20.dp, vertical=10.dp)) { Text("Tu música, tu mundo.",color=fg,fontSize=28.sp,fontWeight=FontWeight.ExtraBold); Text(if(loading)"Buscando música…" else "${songs.size} canciones en este dispositivo",color=secondary) } }
                     item { Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                         HomeTile("Reproducir todo","Tu biblioteca",Icons.Default.PlayArrow,Modifier.weight(1f)){play(songs)}
-                        HomeTile(if(shuffle)"Aleatorio activado" else "Modo aleatorio","Mezcla tu música",Icons.Default.Shuffle,Modifier.weight(1f)){val next=!(controller?.shuffleModeEnabled?:shuffle);shuffle=next;controller?.shuffleModeEnabled=next;if(songs.isNotEmpty()&&(controller?.mediaItemCount?:0)==0)play(songs)}
+                        HomeTile(if(shuffle)"Aleatorio activado" else "Modo aleatorio","Mezcla tu música",Icons.Default.Shuffle,Modifier.weight(1f)){if((controller?.mediaItemCount?:0)==0){shuffle=!shuffle;if(shuffle)play(songs.shuffled())else play(songs)}else toggleShuffleQueue()}
                     } }
                     item { Text("Tu biblioteca",Modifier.padding(start=20.dp,top=14.dp,bottom=6.dp),color=fg,fontSize=19.sp,fontWeight=FontWeight.Bold) }
                     item { HomeRow("Buscar canciones","${songs.size} canciones en el dispositivo",Icons.Default.LibraryMusic,fg,secondary){page="Buscar"} }
@@ -417,7 +431,7 @@ private fun NegativeMusicApp() {
                 Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){IconButton(onClick={controller?.let { p -> val next=!p.shuffleModeEnabled; p.shuffleModeEnabled=next; shuffle=next; if(p.mediaItemCount>1){val all=(0 until p.mediaItemCount).map{p.getMediaItemAt(it)};val current=p.currentMediaItem;val pinned=all.filter{it.mediaId in manualQueueUris};val movable=all.filter{it.mediaId !in manualQueueUris && it.mediaId!=current?.mediaId};val ordered=if(next)movable.shuffled() else movable;val rebuilt=listOfNotNull(current)+ordered+pinned.filter{it.mediaId!=current?.mediaId};if(rebuilt.isNotEmpty()){p.setMediaItems(rebuilt,0,p.currentPosition);p.prepare();p.play()}} }}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)};IconButton(onClick={controller?.let { p -> if(p.currentPosition>2000L) p.seekTo(0L) else p.seekToPreviousMediaItem() }}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))};FilledIconButton(onClick={if(playing)controller?.pause() else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))};IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))};IconButton(onClick={controller?.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}}
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)};IconButton(onClick={controller?.let { p -> if(p.currentPosition>2000L) p.seekTo(0L) else p.seekToPreviousMediaItem() }}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))};FilledIconButton(onClick={if(playing)controller?.pause() else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))};IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))};IconButton(onClick={controller?.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}}
                 Spacer(Modifier.weight(.8f))
             }
         }
