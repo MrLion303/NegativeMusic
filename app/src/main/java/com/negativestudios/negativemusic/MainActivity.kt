@@ -676,16 +676,18 @@ private fun SettingsPage(
                         }
                         SettingsSwitch("Ecualizador", "Ajusta el sonido durante la reproducción.", eq, onEq, fg, sec)
                         if (eq) {
-                            Text("Ecualizador", color=fg, fontSize=18.sp, fontWeight=FontWeight.Bold)
-                            Row(Modifier.fillMaxWidth().height(180.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                            Text("Ecualizador",color=fg,fontSize=18.sp,fontWeight=FontWeight.Bold)
+                            val presets=listOf("Normal" to listOf(0,0,0,0,0),"Rock" to listOf(5,3,-1,3,5),"Pop" to listOf(-2,2,4,2,-1),"Bajos" to listOf(7,5,2,0,0),"Voz" to listOf(-2,0,3,4,3))
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){presets.forEach{(name,values)->FilterChip(selected=eqBands.map{it.toInt()}==values,onClick={values.forEachIndexed{index,value->onBand(index,value.toFloat())}},label={Text(name)})}}
+                            Row(Modifier.fillMaxWidth().height(230.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
                                 val frequencies=listOf("60","230","910","3.6k","14k")
                                 eqBands.forEachIndexed { index,value ->
                                     Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                                        Text("%+d".format(value.toInt()),color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.SemiBold)
-                                        Box(Modifier.height(132.dp).fillMaxWidth(),contentAlignment=Alignment.Center) {
-                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(130.dp).height(30.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
+                                        Text("%+d".format(value.toInt()),color=AccentBlue,fontSize=13.sp,fontWeight=FontWeight.Bold)
+                                        Box(Modifier.height(175.dp).fillMaxWidth(),contentAlignment=Alignment.Center) {
+                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(175.dp).height(42.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
                                         }
-                                        Text(frequencies[index],color=sec,fontSize=10.sp)
+                                        Text(frequencies[index],color=sec,fontSize=11.sp,fontWeight=FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -702,7 +704,17 @@ private fun SettingsPage(
                             Text("Usado", color = sec, fontSize = 13.sp)
                             Text(if (total > 0) bytes(used) else "No disponible", color = fg, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         }
-                        LinearProgressIndicator(progress = { usage }, modifier = Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(8.dp)), color = AccentBlue, trackColor = AccentCyan.copy(alpha = .16f))
+                        val appFraction=if(total>0)(appBytes.toFloat()/total.toFloat()).coerceIn(0f,1f) else 0f
+                        val songFraction=if(total>0)(songBytes.toFloat()/total.toFloat()).coerceIn(0f,1f) else 0f
+                        val otherFraction=(usage-appFraction-songFraction).coerceIn(0f,1f)
+                        val freeFraction=(1f-appFraction-songFraction-otherFraction).coerceIn(0f,1f)
+                        val segmentSum=(appFraction+songFraction+otherFraction+freeFraction).coerceAtLeast(0.0001f)
+                        Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(8.dp))){
+                            Box(Modifier.weight((appFraction/segmentSum).coerceAtLeast(0.0001f)).fillMaxHeight().background(Color(0xFFFFC107)))
+                            Box(Modifier.weight((songFraction/segmentSum).coerceAtLeast(0.0001f)).fillMaxHeight().background(Color(0xFF39B54A)))
+                            Box(Modifier.weight((otherFraction/segmentSum).coerceAtLeast(0.0001f)).fillMaxHeight().background(AccentBlue.copy(alpha=.65f)))
+                            Box(Modifier.weight((freeFraction/segmentSum).coerceAtLeast(0.0001f)).fillMaxHeight().background(AccentCyan.copy(alpha=.12f)))
+                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(if (total > 0) (usage * 100).toInt().toString() + "% utilizado" else "Sin datos", color = AccentBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             Text("Disponible: " + if (total > 0) bytes(free) else "—", color = sec, fontSize = 12.sp)
