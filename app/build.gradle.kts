@@ -34,6 +34,5 @@ dependencies {
     implementation("androidx.media3:media3-session:1.5.1")
     implementation("androidx.media3:media3-common:1.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("net.jthink:jaudiotagger:3.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
