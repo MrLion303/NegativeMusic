@@ -28,6 +28,11 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -154,6 +159,7 @@ private fun NegativeMusicApp() {
     var seekFeedbackSide by remember { mutableIntStateOf(0) }
     var seekRippleKey by remember { mutableIntStateOf(0) }
     var playerDrag by remember { mutableFloatStateOf(0f) }
+    var playerDismissing by remember { mutableStateOf(false) }
     var lyricsEditing by remember { mutableStateOf(false) }
     val toastOffset = remember { Animatable(0f) }
     var timerMins by remember { mutableIntStateOf(30) }
@@ -505,13 +511,22 @@ page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favo
             seekFeedback=if(sameSide)(seekFeedback+delta.toInt()).coerceIn(-120,120) else delta.toInt().coerceIn(-120,120)
             seekRippleKey++
         }
+        val playerDismissOffset by androidx.compose.animation.core.animateFloatAsState(if(playerDismissing) 1000f else 0f,animationSpec=tween(180),label="playerDismiss")
+        val playerNestedConnection=remember(playerScroll){
+            object: NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if(available.y>0f && playerScroll.value==0){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); return Offset(0f,available.y) }
+                    return Offset.Zero
+                }
+                override suspend fun onPreFling(available: Velocity): Velocity {
+                    if(playerDrag>28f){ playerDismissing=true; scope.launch{ delay(180); showPlayer=false; playerDismissing=false; playerDrag=0f } } else if(playerDrag>0f) playerDrag=0f
+                    return Velocity.Zero
+                }
+            }
+        }
         androidx.compose.ui.window.Dialog(onDismissRequest={showPlayer=false;playerDrag=0f},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
-            Surface(Modifier.fillMaxSize().offset(y=playerDrag.dp),color=bg) {
-                Column(Modifier.fillMaxSize().pointerInput(Unit){
-                    detectVerticalDragGestures(onVerticalDrag={change,amount->
-                        if(amount>0){playerDrag=(playerDrag+amount).coerceAtLeast(0f);change.consume()}
-                    },onDragEnd={if(playerDrag>18f){showPlayer=false;playerDrag=0f}else playerDrag=0f},onDragCancel={playerDrag=0f})
-                }.verticalScroll(playerScroll).padding(horizontal=24.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+             Surface(Modifier.fillMaxSize().nestedScroll(playerNestedConnection).offset { IntOffset(0,(if(playerDismissing)playerDismissOffset else playerDrag).roundToInt()) },color=bg) {
+                 Column(Modifier.fillMaxSize().verticalScroll(playerScroll).padding(horizontal=24.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
                         IconButton(onClick={showPlayer=false}){Icon(Icons.Default.KeyboardArrowDown,"Minimizar",tint=fg,modifier=Modifier.size(30.dp))}
                         Spacer(Modifier.weight(1f));Text("REPRODUCIENDO",color=secondary,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f))
