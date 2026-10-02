@@ -226,7 +226,20 @@ private fun NegativeMusicApp() {
                     if (p != null && index != null) {
                         val wasPlaying = p.isPlaying
                         val savedPosition = p.currentPosition
-                        p.replaceMediaItem(index, songs.firstOrNull { it.uri == pending.songUri }?.let { item(it) } ?: p.getMediaItemAt(index))
+                        p.replaceMediaItem(
+                            index,
+                            MediaItem.Builder()
+                                .setMediaId(pending.songUri)
+                                .setUri(Uri.parse(pending.songUri))
+                                .setMediaMetadata(
+                                    MediaMetadata.Builder()
+                                        .setTitle(pending.title)
+                                        .setArtist(pending.artist)
+                                        .apply { pending.coverUri.takeIf { it.isNotBlank() }?.let { setArtworkUri(Uri.parse(it)) } }
+                                        .build()
+                                )
+                                .build()
+                        )
                         p.seekTo(index, savedPosition)
                         if (wasPlaying) p.play()
                     }
