@@ -19,6 +19,7 @@ import coil.compose.AsyncImage
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -352,7 +353,8 @@ private fun NegativeMusicApp() {
                              }
                          }
                      }
-page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favoritas",Modifier.padding(20.dp),color=fg,fontSize=26.sp,fontWeight=FontWeight.Bold); SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it);showPlayer=true},{menuSong=it},{favorite(it)},{queue(it)}, Modifier.weight(1f)) }
+                     }
+                 page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favoritas",Modifier.padding(20.dp),color=fg,fontSize=26.sp,fontWeight=FontWeight.Bold); SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it);showPlayer=true},{menuSong=it},{favorite(it)},{queue(it)}, Modifier.weight(1f)) }
                 else -> LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=8.dp)) {
                     item { Column(Modifier.padding(horizontal=20.dp, vertical=10.dp)) { Text("Tu música, tu mundo.",color=fg,fontSize=28.sp,fontWeight=FontWeight.ExtraBold); Text(if(loading)"Buscando música…" else "${songs.size} canciones en este dispositivo",color=secondary) } }
                     item { Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -502,7 +504,7 @@ page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favo
 
     if (showPlayer && now != null) {
         val playerScroll = rememberScrollState()
-        val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+        val imeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         LaunchedEffect(imeVisible) { if(!imeVisible && lyricsEditing && lyricsText.isNotBlank()) lyricsEditing=false }
         LaunchedEffect(seekFeedback) { if(seekFeedback!=0){ delay(900); seekFeedback=0 } }
         fun seekBy(delta: Long, side: Int) {
@@ -599,18 +601,20 @@ private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playli
 } catch (_:Exception){emptyList()}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Composable () -> Unit) {
     val offset = remember(song.uri) { Animatable(0f) }
+    val swipeScope = rememberCoroutineScope()
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
         Box(Modifier.matchParentSize().background(AccentBlue.copy(alpha=(offset.value/110f).coerceIn(0f,.22f))),contentAlignment=Alignment.CenterStart) {
             Icon(Icons.Default.QueueMusic,null,tint=AccentBlue.copy(alpha=(offset.value/80f).coerceIn(0f,1f)),modifier=Modifier.padding(start=18.dp).size(24.dp))
         }
         Box(Modifier.fillMaxWidth().offset { IntOffset(offset.value.roundToInt(),0) }.pointerInput(song.uri) {
             detectHorizontalDragGestures(
-                onHorizontalDrag={change,amount->change.consume();offset.snapTo((offset.value+amount).coerceIn(0f,130f))},
-                onDragEnd={if(offset.value>=72f){onQueue();offset.animateTo(0f,tween(220))}else offset.animateTo(0f,tween(180))},
-                onDragCancel={offset.animateTo(0f,tween(180))}
+                onHorizontalDrag={change,amount->change.consume();swipeScope.launch{offset.snapTo((offset.value+amount).coerceIn(0f,130f))}},
+                onDragEnd={swipeScope.launch{if(offset.value>=72f){onQueue();offset.animateTo(0f,tween(220))}else offset.animateTo(0f,tween(180))}},
+                onDragCancel={swipeScope.launch{offset.animateTo(0f,tween(180))}}
             )
         }){ content() }
     }
