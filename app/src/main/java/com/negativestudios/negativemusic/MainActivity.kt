@@ -336,16 +336,17 @@ private fun NegativeMusicApp() {
                       }
                     }
                     if(visibleSongs.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)} }
-                    items(visibleSongs,key={it.uri}) { s ->
-                        Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).pointerInput(s.uri){var drag=0f;detectHorizontalDragGestures(onHorizontalDrag={change,amount->drag+=amount;change.consume()},onDragEnd={if(drag>72f)queue(s);drag=0f},onDragCancel={drag=0f})}.padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
-                            Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
-                            Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==now?.uri)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
-                            if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
-                            IconButton(onClick={menuSong=s}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
-                        }
-                    }
-                }
-                page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favoritas",Modifier.padding(20.dp),color=fg,fontSize=26.sp,fontWeight=FontWeight.Bold); SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it);showPlayer=true},{menuSong=it},{favorite(it)},{queue(it)}, Modifier.weight(1f)) }
+                     items(visibleSongs,key={it.uri}) { s ->
+                         SwipeQueueContainer(s,{queue(s)}) {
+                             Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
+                                 Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
+                                 Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==now?.uri)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
+                                 if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
+                                 IconButton(onClick={menuSong=s}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
+                             }
+                         }
+                     }
+page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favoritas",Modifier.padding(20.dp),color=fg,fontSize=26.sp,fontWeight=FontWeight.Bold); SongRows(songs.filter{it.uri in favorites},favorites,fg,secondary,now?.uri,{play(songs.filter{it.uri in favorites},it);showPlayer=true},{menuSong=it},{favorite(it)},{queue(it)}, Modifier.weight(1f)) }
                 else -> LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=8.dp)) {
                     item { Column(Modifier.padding(horizontal=20.dp, vertical=10.dp)) { Text("Tu música, tu mundo.",color=fg,fontSize=28.sp,fontWeight=FontWeight.ExtraBold); Text(if(loading)"Buscando música…" else "${songs.size} canciones en este dispositivo",color=secondary) } }
                     item { Row(Modifier.fillMaxWidth().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -579,15 +580,39 @@ private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playli
 } catch (_:Exception){emptyList()}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Composable () -> Unit) {
+    val offset = remember(song.uri) { Animatable(0f) }
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
+        Box(Modifier.matchParentSize().background(AccentBlue.copy(alpha=(offset.value/110f).coerceIn(0f,.22f))),contentAlignment=Alignment.CenterStart) {
+            Icon(Icons.Default.QueueMusic,null,tint=AccentBlue.copy(alpha=(offset.value/80f).coerceIn(0f,1f)),modifier=Modifier.padding(start=18.dp).size(24.dp))
+        }
+        Box(Modifier.fillMaxWidth().offset { IntOffset(offset.value.roundToInt(),0) }.pointerInput(song.uri) {
+            detectHorizontalDragGestures(
+                onHorizontalDrag={change,amount->change.consume();offset.snapTo((offset.value+amount).coerceIn(0f,130f))},
+                onDragEnd={if(offset.value>=72f){onQueue();offset.animateTo(0f,tween(220))}else offset.animateTo(0f,tween(180))},
+                onDragCancel={offset.animateTo(0f,tween(180))}
+            )
+        }){ content() }
+    }
+}
+
 @Composable private fun SongRows(songs:List<Song>,favorites:Set<String>,fg:Color,secondary:Color,current:String?,play:(Song)->Unit,menu:(Song)->Unit,favorite:(Song)->Unit,enqueue:(Song)->Unit,modifier: Modifier = Modifier.fillMaxWidth()) {
     if(songs.isEmpty()) Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)}
-    else LazyColumn(modifier,contentPadding=PaddingValues(bottom=12.dp)){items(songs,key={it.uri}){s->Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(s)},onLongClick={menu(s)}).pointerInput(s.uri){var drag=0f;detectHorizontalDragGestures(onHorizontalDrag={change,amount->drag+=amount;change.consume()},onDragEnd={if(drag>72f)enqueue(s);drag=0f},onDragCancel={drag=0f})}.padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
-        Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
-        Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==current)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
-        if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
-        IconButton(onClick={menu(s)}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
-    }}}
+    else LazyColumn(modifier,contentPadding=PaddingValues(bottom=12.dp)){
+        items(songs,key={it.uri}){s->
+            SwipeQueueContainer(s,{enqueue(s)}) {
+                Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(s)},onLongClick={menu(s)}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
+                    Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
+                    Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==current)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
+                    if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
+                    IconButton(onClick={menu(s)}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
+                }
+            }
+        }
+    }
 }
+
 @Composable private fun HomeTile(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit){
     Card(modifier.clickable(onClick=onClick),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Icon(icon,null,tint=AccentBlue,modifier=Modifier.size(28.dp));Spacer(Modifier.height(14.dp));Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text(sub,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}}
 }
