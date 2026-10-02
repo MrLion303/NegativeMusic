@@ -146,7 +146,7 @@ private fun NegativeMusicApp() {
         } else permission.launch(audioPermission())
     }
     DisposableEffect(controller, songs) {
-        val p = controller ?: return@DisposableEffect
+        val p = controller ?: return@DisposableEffect onDispose {}
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
