@@ -282,6 +282,7 @@ private fun NegativeMusicApp() {
     fun songTitle(s: Song) = prefs.getString("song_title_${s.uri}", null) ?: s.title
     fun songArtist(s: Song) = prefs.getString("song_artist_${s.uri}", null) ?: s.artist
     fun songCover(s: Song) = prefs.getString("song_cover_${s.uri}", null) ?: ""
+    fun displaySong(s: Song) = s.copy(title = songTitle(s), artist = songArtist(s))
     fun item(s: Song) = MediaItem.Builder().setMediaId(s.uri).setUri(Uri.parse(s.uri)).setMediaMetadata(MediaMetadata.Builder().setTitle(songTitle(s)).setArtist(songArtist(s)).setAlbumTitle(s.album).apply { songCover(s).takeIf { it.isNotBlank() }?.let { setArtworkUri(Uri.parse(it)) } }.build()).build()
     fun play(list: List<Song>, start: Song? = null) {
         val p = controller
@@ -322,9 +323,9 @@ private fun NegativeMusicApp() {
         page == "Favoritos" -> songs.filter { it.uri in favorites }
         page == "Descargas" -> downloadedSongs
         page.startsWith("playlist:") -> (selectedPlaylist?.songs ?: emptyList()).mapNotNull { uri -> songs.firstOrNull { it.uri == uri } }
-        page == "Buscar" -> songs.filter { it.title.contains(search,true) || it.artist.contains(search,true) || it.album.contains(search,true) }
+        page == "Buscar" -> songs.filter { displaySong(it).title.contains(search,true) || displaySong(it).artist.contains(search,true) || it.album.contains(search,true) }
         else -> songs
-    }
+    }.map(::displaySong)
 
     BackHandler {
         when {
@@ -389,14 +390,6 @@ private fun NegativeMusicApp() {
                         Row(Modifier.fillMaxWidth().padding(start=14.dp,end=14.dp,top=8.dp),verticalAlignment=Alignment.CenterVertically){
                             IconButton(onClick={page=playlistOrigin}){Icon(Icons.Default.ArrowBack,"Volver",tint=fg)}
                             Spacer(Modifier.weight(1f))
-                            Box{
-                                IconButton(onClick={playlistMenuOpen=true}){Icon(Icons.Default.MoreVert,"Opciones de playlist",tint=AccentBlue)}
-                                DropdownMenu(expanded=playlistMenuOpen,onDismissRequest={playlistMenuOpen=false}){
-                                    DropdownMenuItem(text={Text(if(reorderPlaylist) "Terminar de ordenar" else "Ordenar canciones")},leadingIcon={Icon(Icons.Default.SwapVert,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;reorderPlaylist=!reorderPlaylist})
-                                     DropdownMenuItem(text={Text("Editar playlist")},leadingIcon={Icon(Icons.Default.Edit,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;editTarget=selectedPlaylist})
-                                    DropdownMenuItem(text={Text("Eliminar playlist")},leadingIcon={Icon(Icons.Default.Delete,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;playlistDeleteTarget=selectedPlaylist})
-                                }
-                            }
                         }
                         Column {
                             Box(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=5.dp),contentAlignment=Alignment.Center){
@@ -408,7 +401,14 @@ private fun NegativeMusicApp() {
                             val playlistDuration = visibleSongs.sumOf { it.duration }
                             Text("${visibleSongs.size} canciones · ${time(playlistDuration)}",Modifier.padding(start=22.dp,end=22.dp,top=4.dp),color=secondary,fontSize=12.sp)
                              Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
-                                 ThemedIconButton(dark,Icons.Default.MoreVert,"Opciones de playlist",if(dark)AccentBlue else fg){playlistMenuOpen=true}
+                                 Box {
+                                     ThemedIconButton(dark,Icons.Default.MoreVert,"Opciones de playlist",if(playlistMenuOpen) AccentBlue else if(dark)AccentBlue else fg){playlistMenuOpen=true}
+                                     DropdownMenu(expanded=playlistMenuOpen,onDismissRequest={playlistMenuOpen=false}){
+                                         DropdownMenuItem(text={Text(if(reorderPlaylist) "Terminar de ordenar" else "Ordenar canciones")},leadingIcon={Icon(Icons.Default.SwapVert,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;reorderPlaylist=!reorderPlaylist})
+                                         DropdownMenuItem(text={Text("Editar playlist")},leadingIcon={Icon(Icons.Default.Edit,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;editTarget=selectedPlaylist})
+                                         DropdownMenuItem(text={Text("Eliminar playlist")},leadingIcon={Icon(Icons.Default.Delete,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;playlistDeleteTarget=selectedPlaylist})
+                                     }
+                                 }
                                  ThemedIconButton(dark,Icons.Default.Shuffle,"Modo aleatorio",if(shuffle)AccentBlue else secondary){toggleShuffleQueue()}
                                  ThemedIconButton(dark,Icons.Default.Add,"Añadir canción",if(dark)AccentBlue else fg){selectedSongUris=emptySet();addSongsSearch="";addSongsSource="";showAddSongsDialog=true}
                                  Spacer(Modifier.weight(1f))
