@@ -420,11 +420,51 @@ private fun NegativeMusicApp() {
                     if(visibleSongs.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)} }
                      items(visibleSongs,key={it.uri}) { s ->
                          SwipeQueueContainer(s,{queue(s)}) {
-                             Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
+                             Row(
+                                 Modifier
+                                     .fillMaxWidth()
+                                     .then(
+                                         if (reorderPlaylist) {
+                                             Modifier.pointerInput(s.uri, reorderPlaylist) {
+                                                 var accumulated = 0f
+                                                 detectVerticalDragGestures(
+                                                     onVerticalDrag = { change, amount ->
+                                                         change.consume()
+                                                         accumulated += amount
+                                                         val threshold = 56.dp.toPx()
+                                                         if (kotlin.math.abs(accumulated) >= threshold) {
+                                                             val direction = if (accumulated > 0f) 1 else -1
+                                                             val pl = playlists.firstOrNull { it.id == selectedPlaylist?.id }
+                                                             val oldIndex = pl?.songs?.indexOf(s.uri) ?: -1
+                                                             val newIndex = oldIndex + direction
+                                                             if (pl != null && oldIndex >= 0 && newIndex in pl.songs.indices) {
+                                                                 val moved = pl.songs.toMutableList()
+                                                                 val uri = moved.removeAt(oldIndex)
+                                                                 moved.add(newIndex, uri)
+                                                                 saveLists(playlists.map { if (it.id == pl.id) it.copy(songs = moved) else it })
+                                                                 accumulated -= direction * threshold
+                                                             } else {
+                                                                 accumulated = 0f
+                                                             }
+                                                         }
+                                                     }
+                                                 )
+                                             }
+                                         } else Modifier
+                                     )
+                                     .combinedClickable(
+                                         enabled = !reorderPlaylist,
+                                         onClick = { play(visibleSongs,s); showPlayer=true },
+                                         onLongClick = { menuSong=s }
+                                     )
+                                     .padding(horizontal=16.dp,vertical=7.dp),
+                                 verticalAlignment=Alignment.CenterVertically
+                             ){
+                                 if (reorderPlaylist) Icon(Icons.Default.DragHandle,"Mover canción",tint=AccentBlue,modifier=Modifier.size(28.dp))
                                  Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
                                  Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==now?.uri)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
                                  if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
-                                 IconButton(onClick={menuSong=s}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
+                                 if (!reorderPlaylist) IconButton(onClick={menuSong=s}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
                              }
                          }
                      }
@@ -660,7 +700,7 @@ private fun NegativeMusicApp() {
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-                        Column(Modifier.weight(1f)){Text(now!!.title,color=fg,fontSize=23.sp,fontWeight=FontWeight.ExtraBold,maxLines=2,overflow=TextOverflow.Ellipsis);Text(now!!.artist,color=secondary,fontSize=15.sp,maxLines=1)}
+                        Column(Modifier.weight(1f)){Text(songTitle(now!!),color=fg,fontSize=23.sp,fontWeight=FontWeight.ExtraBold,maxLines=2,overflow=TextOverflow.Ellipsis);Text(songArtist(now!!),color=secondary,fontSize=15.sp,maxLines=1)}
                         IconButton(onClick={favorite(now!!)} ){Icon(Icons.Default.Favorite,null,tint=if(now!!.uri in favorites)AccentBlue else secondary)}
                     }
                     Spacer(Modifier.height(18.dp))
@@ -701,7 +741,13 @@ private fun NegativeMusicApp() {
     if (clearDataDialog) AlertDialog(onDismissRequest={clearDataDialog=false},title={Text("Limpiar almacenamiento")},text={Text("Se borrarán playlists, favoritos y preferencias. Las canciones originales del teléfono no se eliminarán.")},confirmButton={TextButton(onClick={prefs.edit().clear().apply();saveLists(emptyList());saveFavorites(emptySet());theme="dark";crossfade=0f;mono=false;normalize=false;volume="Normal";eqOn=false;(0..4).forEach{prefs.edit().putInt("eqBand$it",0).apply()};eqBands=listOf(0f,0f,0f,0f,0f);PlaybackAudioEffects.applyBands(listOf(0,0,0,0,0));PlaybackAudioEffects.setEnabled(false);clearDataDialog=false;toast="Datos de la app limpiados."}){Text("Limpiar datos")}},dismissButton={TextButton(onClick={clearDataDialog=false}){Text("Cancelar")}})
 }
 
-@Composable private fun ThemedIconButton(dark:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,description:String,tint:Color,onClick:()->Unit){ IconButton(onClick=onClick,modifier=Modifier.size(44.dp)){ Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(AccentBlue.copy(alpha=.14f)),contentAlignment=Alignment.Center){ Icon(icon,description,tint=AccentBlue,modifier=Modifier.size(23.dp)) } } }
+@Composable private fun ThemedIconButton(dark:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,description:String,tint:Color,onClick:()->Unit){
+    IconButton(onClick=onClick,modifier=Modifier.size(44.dp)){
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(tint.copy(alpha=.14f)),contentAlignment=Alignment.Center){
+            Icon(icon,description,tint=tint,modifier=Modifier.size(23.dp))
+        }
+    }
+}
 
 @Composable private fun BottomAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=22.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=if(fg==Color.White) AccentBlue else fg);Spacer(Modifier.width(18.dp));Text(label,color=fg,fontSize=15.sp)}}
 
