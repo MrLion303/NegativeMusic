@@ -1,7 +1,6 @@
 package com.negativestudios.negativemusic
 
 import android.Manifest
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
@@ -16,8 +15,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.IntentSenderRequest
 import coil.compose.AsyncImage
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
@@ -89,7 +88,6 @@ private val Gray = Color(0xFFB3C0CE)
 
 data class Song(val uri: String, val title: String, val artist: String, val album: String, val duration: Long, val size: Long, val albumId: Long, val path: String = "")
 data class Playlist(val id: String, val name: String, val description: String = "", val cover: String = "", val songs: List<String> = emptyList())
-data class PendingMetadataEdit(val songUri: String, val title: String, val artist: String, val coverUri: String)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,7 +159,6 @@ private fun NegativeMusicApp() {
     var metadataTitle by remember { mutableStateOf("") }
     var metadataArtist by remember { mutableStateOf("") }
     var metadataCover by remember { mutableStateOf("") }
-    var pendingMetadataEdit by remember { mutableStateOf<PendingMetadataEdit?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
     var playlistDeleteTarget by remember { mutableStateOf<Playlist?>(null) }
@@ -197,61 +194,6 @@ private fun NegativeMusicApp() {
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         scope.launch { if (ok) songs = withContext(Dispatchers.IO) { scanMusic(ctx) }; loading = false }
-    }
-    val metadataWriteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        val pending = pendingMetadataEdit
-        pendingMetadataEdit = null
-        if (result.resultCode == Activity.RESULT_OK && pending != null) {
-            scope.launch {
-                val success = withContext(Dispatchers.IO) {
-                    runCatching {
-                        AudioMetadataEditor.write(
-                            ctx,
-                            Uri.parse(pending.songUri),
-                            pending.title,
-                            pending.artist,
-                            pending.coverUri.takeIf { it.isNotBlank() }?.let(Uri::parse)
-                        )
-                    }.isSuccess
-                }
-                if (success) {
-                    prefs.edit()
-                        .putString("song_title_${pending.songUri}", pending.title)
-                        .putString("song_artist_${pending.songUri}", pending.artist)
-                        .putString("song_cover_${pending.songUri}", pending.coverUri)
-                        .apply()
-                    songs = withContext(Dispatchers.IO) { scanMusic(ctx) }
-                    val p = controller
-                    val index = p?.let { player -> (0 until player.mediaItemCount).firstOrNull { i -> player.getMediaItemAt(i).mediaId == pending.songUri } }
-                    if (p != null && index != null) {
-                        val wasPlaying = p.isPlaying
-                        val savedPosition = p.currentPosition
-                        p.replaceMediaItem(
-                            index,
-                            MediaItem.Builder()
-                                .setMediaId(pending.songUri)
-                                .setUri(Uri.parse(pending.songUri))
-                                .setMediaMetadata(
-                                    MediaMetadata.Builder()
-                                        .setTitle(pending.title)
-                                        .setArtist(pending.artist)
-                                        .apply { pending.coverUri.takeIf { it.isNotBlank() }?.let { setArtworkUri(Uri.parse(it)) } }
-                                        .build()
-                                )
-                                .build()
-                        )
-                        p.seekTo(index, savedPosition)
-                        if (wasPlaying) p.play()
-                    }
-                    metadataSong = null
-                    toast = "Datos de la canción guardados en el archivo."
-                } else {
-                    toast = "No se pudieron escribir los metadatos del archivo."
-                }
-            }
-        } else if (pending != null) {
-            toast = "No se concedió permiso para modificar el archivo."
-        }
     }
     DisposableEffect(ctx) {
         val future: ListenableFuture<MediaController> = MediaController.Builder(ctx, SessionToken(ctx, ComponentName(ctx, MusicPlaybackService::class.java))).buildAsync()
@@ -364,8 +306,9 @@ private fun NegativeMusicApp() {
                 Column(Modifier.weight(1f)) { Text("NEGATIVE", color=secondary, fontSize=10.sp, letterSpacing=2.sp, fontWeight=FontWeight.Bold); Text("Music", color=fg, fontSize=24.sp, fontWeight=FontWeight.ExtraBold) }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                page == "Ajustes" -> SettingsPage(theme, settingsSection, { settingsSection = it }, { theme=it; prefs.edit().putString("theme",it).apply() }, crossfade, { crossfade=it; prefs.edit().putInt("crossfade",it.toInt()).apply() }, mono, { mono=it; prefs.edit().putBoolean("mono",it).apply() }, normalize, { normalize=it; prefs.edit().putBoolean("normalize",it).apply(); controller?.volume=if(it) .85f else 1f }, volume, { volume=it; prefs.edit().putString("volume",it).apply(); controller?.volume=when(it){"Bajo"->.55f;"Alto"->1f;else->.8f} }, eqOn, { eqOn=it; prefs.edit().putBoolean("eq",it).apply(); PlaybackAudioEffects.setEnabled(it) }, eqBands, { index,value -> val updated=eqBands.toMutableList(); updated[index]=value; eqBands=updated; prefs.edit().putInt("eqBand$index",value.toInt()).apply(); PlaybackAudioEffects.applyBands(updated.map{it.toInt()}) }, songs.size, songs.sumOf{it.size}, ctx.filesDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, ctx.cacheDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, { ctx.cacheDir.deleteRecursively(); ctx.cacheDir.mkdirs(); toast="Caché limpiada." }, { clearDataDialog=true })
+            AnimatedContent(targetState = page, label = "pageTransition") { currentPage ->
+                when {
+                currentPage == "Ajustes" -> SettingsPage(theme, settingsSection, { settingsSection = it }, { theme=it; prefs.edit().putString("theme",it).apply() }, crossfade, { crossfade=it; prefs.edit().putInt("crossfade",it.toInt()).apply() }, mono, { mono=it; prefs.edit().putBoolean("mono",it).apply() }, normalize, { normalize=it; prefs.edit().putBoolean("normalize",it).apply(); controller?.volume=if(it) .85f else 1f }, volume, { volume=it; prefs.edit().putString("volume",it).apply(); controller?.volume=when(it){"Bajo"->.55f;"Alto"->1f;else->.8f} }, eqOn, { eqOn=it; prefs.edit().putBoolean("eq",it).apply(); PlaybackAudioEffects.setEnabled(it) }, eqBands, { index,value -> val updated=eqBands.toMutableList(); updated[index]=value; eqBands=updated; prefs.edit().putInt("eqBand$index",value.toInt()).apply(); PlaybackAudioEffects.applyBands(updated.map{it.toInt()}) }, songs.size, songs.sumOf{it.size}, ctx.filesDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, ctx.cacheDir.walkTopDown().filter{it.isFile}.sumOf{it.length()}, { ctx.cacheDir.deleteRecursively(); ctx.cacheDir.mkdirs(); toast="Caché limpiada." }, { clearDataDialog=true })
                 page == "Buscar" -> Column(Modifier.fillMaxSize()) {
                     OutlinedTextField(search,{search=it},Modifier.fillMaxWidth().padding(horizontal=16.dp),placeholder={Text("¿Qué quieres escuchar?")},leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true)
                     SongRows(visibleSongs,favorites,fg,secondary,now?.uri,dark,{play(visibleSongs,it);showPlayer=true},{menuSong=it},{favorite(it)},{queue(it)}, Modifier.weight(1f))
@@ -378,8 +321,9 @@ private fun NegativeMusicApp() {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         listOf("Playlists","Favoritos").forEach { tab -> FilterChip(selected=libraryTab==tab,onClick={libraryTab=tab},label={Text(tab)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=AccentBlue.copy(alpha=.2f),selectedLabelColor=if(dark) Color.White else AccentBlue)) }
                     }
+                    AnimatedContent(targetState = libraryTab, label = "libraryTabTransition") { currentTab ->
                     LazyColumn(Modifier.weight(1f).fillMaxWidth(),contentPadding=PaddingValues(bottom=16.dp)) {
-                        if(libraryTab=="Playlists") {
+                        if(currentTab=="Playlists" {
                             item { HomeRow("Descargas","${downloadedSongs.size} canciones descargadas",Icons.Default.Download,fg,secondary){page="Descargas"} }
                             if(playlists.isEmpty()) item { Text("Tus playlists aparecerán aquí cuando crees una.",Modifier.padding(22.dp),color=secondary) }
                             items(playlists,key={it.id}) { p -> HomeRow(p.name,"${p.songs.size} canciones",Icons.Default.QueueMusic,fg,secondary,p.cover){playlistOrigin=page;page="playlist:"+p.id} }
@@ -387,6 +331,7 @@ private fun NegativeMusicApp() {
                             item { Text("Tus canciones favoritas",Modifier.padding(start=20.dp,top=12.dp,bottom=6.dp),color=secondary,fontSize=13.sp) }
                             items(songs.filter{it.uri in favorites},key={it.uri}) { song -> Row(Modifier.fillMaxWidth().clickable{play(songs.filter{it.uri in favorites},song);showPlayer=true}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.MusicNote,null,tint=AccentBlue)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(song.title,color=fg,maxLines=1);Text(song.artist,color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={menuSong=song}){Icon(Icons.Default.MoreVert,null,tint=secondary)}} }
                         }
+                    }
                     }
                 }
                 page == "Descargas" -> Column(Modifier.fillMaxSize()) {
@@ -435,6 +380,7 @@ private fun NegativeMusicApp() {
                          SwipeQueueContainer(s,{queue(s)}) {
                              Row(
                                  Modifier
+                                     .animateItem()
                                      .fillMaxWidth()
                                      .then(
                                          if (reorderPlaylist) {
@@ -680,12 +626,12 @@ private fun NegativeMusicApp() {
                     Row(verticalAlignment=Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Editar datos de la canción",color=fg,fontSize=21.sp,fontWeight=FontWeight.ExtraBold)
-                            Text("Los cambios se escribirán en el archivo de audio.",color=secondary,fontSize=12.sp)
+                            Text("Los cambios se guardarán solo en NegativeMusic y no modificarán el archivo original.",color=secondary,fontSize=12.sp)
                         }
                         IconButton(onClick={metadataSong=null}){Icon(Icons.Default.Close,"Cerrar",tint=secondary)}
                     }
-                    OutlinedTextField(value=metadataTitle,onValueChange={metadataTitle=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Título")})
-                    OutlinedTextField(value=metadataArtist,onValueChange={metadataArtist=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Artista")})
+                    OutlinedTextField(value=metadataTitle,onValueChange={metadataTitle=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Título")},colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Color.White,unfocusedTextColor=Color.White,cursorColor=AccentBlue,focusedLabelColor=AccentBlue,unfocusedLabelColor=Gray))
+                    OutlinedTextField(value=metadataArtist,onValueChange={metadataArtist=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Artista")},colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Color.White,unfocusedTextColor=Color.White,cursorColor=AccentBlue,focusedLabelColor=AccentBlue,unfocusedLabelColor=Gray))
                     val coverPicker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->if(uri!=null)metadataCover=uri.toString()}
                     if(metadataCover.isNotBlank()) {
                         AsyncImage(model=metadataCover,contentDescription="Portada seleccionada",modifier=Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
@@ -697,37 +643,14 @@ private fun NegativeMusicApp() {
                         OutlinedButton(onClick={metadataSong=null},modifier=Modifier.weight(1f)){Text("Cancelar")}
                         Button(
                             onClick={
-                                val pending=PendingMetadataEdit(
-                                    s.uri,
-                                    metadataTitle.trim().ifBlank{s.title},
-                                    metadataArtist.trim().ifBlank{s.artist},
-                                    metadataCover
-                                )
-                                pendingMetadataEdit=pending
-                                metadataSong=null
-                                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R) {
-                                    try {
-                                        val request=MediaStore.createWriteRequest(ctx.contentResolver,listOf(Uri.parse(s.uri)))
-                                        metadataWriteLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
-                                    } catch(_:Exception) {
-                                        pendingMetadataEdit=null
-                                        toast="No se pudo solicitar permiso de escritura."
-                                    }
-                                } else {
-                                    scope.launch {
-                                        val success=withContext(Dispatchers.IO){
-                                            runCatching{
-                                                AudioMetadataEditor.write(ctx,Uri.parse(pending.songUri),pending.title,pending.artist,pending.coverUri.takeIf{it.isNotBlank()}?.let(Uri::parse))
-                                            }.isSuccess
-                                        }
-                                        if(success){
-                                            prefs.edit().putString("song_title_${pending.songUri}",pending.title).putString("song_artist_${pending.songUri}",pending.artist).putString("song_cover_${pending.songUri}",pending.coverUri).apply()
-                                            songs=withContext(Dispatchers.IO){scanMusic(ctx)}
-                                            toast="Datos de la canción guardados en el archivo."
-                                        } else toast="No se pudieron escribir los metadatos del archivo."
-                                        pendingMetadataEdit=null
-                                    }
-                                }
+                                val uri = s.uri
+                                prefs.edit()
+                                    .putString("song_title_${uri}", metadataTitle.trim().ifBlank{s.title})
+                                    .putString("song_artist_${uri}", metadataArtist.trim().ifBlank{s.artist})
+                                    .putString("song_cover_${uri}", metadataCover)
+                                    .apply()
+                                metadataSong = null
+                                toast = "Datos guardados solo en NegativeMusic."
                             },
                             enabled=metadataTitle.isNotBlank() && metadataArtist.isNotBlank(),
                             modifier=Modifier.weight(1f),
