@@ -323,7 +323,7 @@ private fun NegativeMusicApp() {
                     }
                     AnimatedContent(targetState = libraryTab, label = "libraryTabTransition") { currentTab ->
                     LazyColumn(Modifier.weight(1f).fillMaxWidth(),contentPadding=PaddingValues(bottom=16.dp)) {
-                        if(currentTab=="Playlists" {
+                        if(currentTab=="Playlists") {
                             item { HomeRow("Descargas","${downloadedSongs.size} canciones descargadas",Icons.Default.Download,fg,secondary){page="Descargas"} }
                             if(playlists.isEmpty()) item { Text("Tus playlists aparecerán aquí cuando crees una.",Modifier.padding(22.dp),color=secondary) }
                             items(playlists,key={it.id}) { p -> HomeRow(p.name,"${p.songs.size} canciones",Icons.Default.QueueMusic,fg,secondary,p.cover){playlistOrigin=page;page="playlist:"+p.id} }
