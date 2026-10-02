@@ -24,6 +24,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -140,6 +141,8 @@ private fun NegativeMusicApp() {
     var showQueue by remember { mutableStateOf(false) }
     var showPlayer by remember { mutableStateOf(false) }
     var showTimer by remember { mutableStateOf(false) }
+    var seekFeedback by remember { mutableIntStateOf(0) }
+    var playerDrag by remember { mutableFloatStateOf(0f) }
     var timerMins by remember { mutableIntStateOf(30) }
     var deadline by remember { mutableLongStateOf(0L) }
     var crossfade by remember { mutableFloatStateOf(prefs.getInt("crossfade", 0).toFloat()) }
@@ -454,20 +457,67 @@ private fun NegativeMusicApp() {
         Spacer(Modifier.height(20.dp))
     } }
 
-    if (showPlayer && now != null) androidx.compose.ui.window.Dialog(onDismissRequest={showPlayer=false},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
-        Surface(Modifier.fillMaxSize(),color=bg) {
-            Column(Modifier.fillMaxSize().padding(horizontal=24.dp, vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                Row(Modifier.fillMaxWidth().pointerInput(Unit){var drag=0f;detectVerticalDragGestures(onVerticalDrag={change,amount->drag+=amount;change.consume()},onDragEnd={if(drag>65f)showPlayer=false;drag=0f})},verticalAlignment=Alignment.CenterVertically){IconButton(onClick={showPlayer=false}){Icon(Icons.Default.KeyboardArrowDown,"Minimizar",tint=fg,modifier=Modifier.size(30.dp))};Spacer(Modifier.weight(1f));Text("REPRODUCIENDO",color=secondary,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,"Fila",tint=fg)}}
-                Spacer(Modifier.weight(.6f))
-                if(!lyricsExpanded) Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF123C67),Color(0xFF071018)))).pointerInput(lyricsExpanded){var drag=0f;detectVerticalDragGestures(onVerticalDrag={change,amount->drag+=amount;change.consume()},onDragEnd={if(drag>75f)lyricsExpanded=true else if(drag< -75f)lyricsExpanded=false;drag=0f})},contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentCyan,modifier=Modifier.size(100.dp))} else Column(Modifier.fillMaxWidth().height(320.dp).clip(RoundedCornerShape(22.dp)).background(surface).padding(16.dp),horizontalAlignment=Alignment.Start){Row(verticalAlignment=Alignment.CenterVertically){Text("Letra",fontSize=22.sp,fontWeight=FontWeight.Bold,color=fg,modifier=Modifier.weight(1f));IconButton(onClick={lyricsExpanded=false}){Icon(Icons.Default.KeyboardArrowUp,"Ocultar letra",tint=fg)}};Text(now!!.title,color=secondary,fontSize=13.sp);Spacer(Modifier.height(8.dp));OutlinedTextField(value=lyricsText,onValueChange={lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()},modifier=Modifier.fillMaxWidth().weight(1f),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=6,maxLines=10,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue))}
-                Spacer(Modifier.height(30.dp))
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(now!!.title,color=fg,fontSize=23.sp,fontWeight=FontWeight.ExtraBold,maxLines=2,overflow=TextOverflow.Ellipsis);Text(now!!.artist,color=secondary,fontSize=15.sp,maxLines=1)};IconButton(onClick={favorite(now!!);}){Icon(Icons.Default.Favorite,null,tint=if(now!!.uri in favorites)AccentBlue else secondary)}}
-                Spacer(Modifier.height(20.dp))
-                Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)};IconButton(onClick={controller?.let { p -> if(p.currentPosition>2000L) p.seekTo(0L) else p.seekToPreviousMediaItem() }}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))};FilledIconButton(onClick={if(playing)controller?.pause() else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))};IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))};IconButton(onClick={controller?.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}}
-                Spacer(Modifier.weight(.8f))
+    if (showPlayer && now != null) {
+        val playerScroll = rememberScrollState()
+        LaunchedEffect(seekFeedback) { if(seekFeedback!=0){ delay(900); seekFeedback=0 } }
+        fun seekBy(delta: Long) {
+            val p=controller ?: return
+            p.seekTo((p.currentPosition+delta*1000L).coerceIn(0L,p.duration.coerceAtLeast(0L)))
+            seekFeedback=(seekFeedback+delta.toInt()).coerceIn(-120,120)
+        }
+        androidx.compose.ui.window.Dialog(onDismissRequest={showPlayer=false;playerDrag=0f},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
+            Surface(Modifier.fillMaxSize().offset(y=playerDrag.dp),color=bg) {
+                Column(Modifier.fillMaxSize().pointerInput(Unit){
+                    detectVerticalDragGestures(onVerticalDrag={change,amount->
+                        if(amount>0){playerDrag=(playerDrag+amount).coerceAtLeast(0f);change.consume()}
+                    },onDragEnd={if(playerDrag>18f){showPlayer=false;playerDrag=0f}else playerDrag=0f},onDragCancel={playerDrag=0f})
+                }.verticalScroll(playerScroll).padding(horizontal=24.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                        IconButton(onClick={showPlayer=false}){Icon(Icons.Default.KeyboardArrowDown,"Minimizar",tint=fg,modifier=Modifier.size(30.dp))}
+                        Spacer(Modifier.weight(1f));Text("REPRODUCIENDO",color=secondary,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f))
+                        IconButton(onClick={menuSong=now}){Icon(Icons.Default.MoreVert,"Opciones de la canción",tint=fg)}
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF123C67),Color(0xFF071018))))) {
+                        Icon(Icons.Default.Album,null,tint=AccentCyan,modifier=Modifier.size(100.dp).align(Alignment.Center))
+                        Row(Modifier.fillMaxSize()){
+                            Box(Modifier.weight(1f).fillMaxHeight().pointerInput(Unit){detectTapGestures(onDoubleTap={seekBy(-5)})})
+                            Box(Modifier.weight(1f).fillMaxHeight().pointerInput(Unit){detectTapGestures(onDoubleTap={seekBy(5)})})
+                        }
+                        if(seekFeedback!=0) Box(Modifier.align(Alignment.Center).clip(RoundedCornerShape(18.dp)).background(Color.Black.copy(alpha=.68f)).padding(horizontal=20.dp,vertical=13.dp)){Text(if(seekFeedback>0)"+$seekFeedback" else "$seekFeedback",color=Color.White,fontSize=27.sp,fontWeight=FontWeight.ExtraBold)}
+                    }
+                    Text("Doble toque: −5 s / +5 s · acumulado hasta 120 s",color=secondary,fontSize=10.sp,modifier=Modifier.padding(top=6.dp))
+                    Spacer(Modifier.height(18.dp))
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                        Column(Modifier.weight(1f)){Text(now!!.title,color=fg,fontSize=23.sp,fontWeight=FontWeight.ExtraBold,maxLines=2,overflow=TextOverflow.Ellipsis);Text(now!!.artist,color=secondary,fontSize=15.sp,maxLines=1)}
+                        IconButton(onClick={favorite(now!!)} ){Icon(Icons.Default.Favorite,null,tint=if(now!!.uri in favorites)AccentBlue else secondary)}
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
+                        IconButton(onClick={controller?.let{p->if(p.currentPosition>2000L)p.seekTo(0L)else p.seekToPreviousMediaItem()}}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))}
+                        FilledIconButton(onClick={if(playing)controller?.pause()else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))}
+                        IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))}
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)};Text("Aleatorio",color=secondary,fontSize=10.sp)
+                            IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=fg)};Text("Dispositivos",color=secondary,fontSize=10.sp)
+                        }
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}};Text("Bucle",color=secondary,fontSize=10.sp)
+                            IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,"Fila de reproducción",tint=fg)};Text("Fila",color=secondary,fontSize=10.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
+                    Text("Desliza hacia abajo para ver y editar la letra.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
+                    OutlinedTextField(value=lyricsText,onValueChange={lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()},modifier=Modifier.fillMaxWidth().heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue))
+                    Spacer(Modifier.height(32.dp))
+                }
             }
             if(showQueue) androidx.compose.material3.ModalBottomSheet(onDismissRequest={showQueue=false},containerColor=surface,contentColor=fg) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Text("Fila de reproducción",fontSize=23.sp,fontWeight=FontWeight.ExtraBold,color=fg,modifier=Modifier.weight(1f));TextButton(onClick={controller?.clearMediaItems();showQueue=false}){Text("Vaciar")}}
@@ -476,12 +526,6 @@ private fun NegativeMusicApp() {
                 else LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp).padding(bottom=20.dp)){items((0 until qp.mediaItemCount).toList(),key={it}){i->val mi=qp.getMediaItemAt(i);val song=songs.firstOrNull{it.uri==mi.localConfiguration?.uri?.toString()};Row(Modifier.fillMaxWidth().clickable{qp.seekTo(i,0);qp.play();showQueue=false}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(song?.title?:mi.mediaMetadata.title?.toString().orEmpty(),color=if(i==qp.currentMediaItemIndex)AccentBlue else fg,maxLines=1);Text(song?.artist?:mi.mediaMetadata.artist?.toString().orEmpty(),color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={qp.removeMediaItem(i)}){Icon(Icons.Default.Close,"Quitar",tint=secondary)}}}}
             }
         }
-    }
-    if (showQueue && !showPlayer) androidx.compose.material3.ModalBottomSheet(onDismissRequest={showQueue=false},containerColor=surface,contentColor=fg) {
-        Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Text("Fila de reproducción",fontSize=23.sp,fontWeight=FontWeight.ExtraBold,color=fg,modifier=Modifier.weight(1f));TextButton(onClick={controller?.clearMediaItems();showQueue=false}){Text("Vaciar")}}
-        val p=controller
-        if(p==null||p.mediaItemCount==0) Box(Modifier.fillMaxWidth().height(180.dp),contentAlignment=Alignment.Center){Text("La fila está vacía.",color=secondary)}
-        else LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp).padding(bottom=20.dp)){items((0 until p.mediaItemCount).toList(),key={it}){i->val mi=p.getMediaItemAt(i);val song=songs.firstOrNull{it.uri==mi.localConfiguration?.uri?.toString()};Row(Modifier.fillMaxWidth().clickable{p.seekTo(i,0);p.play();showQueue=false;showPlayer=true}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF102D4A)),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(song?.title?:mi.mediaMetadata.title?.toString().orEmpty(),color=if(i==p.currentMediaItemIndex)AccentBlue else fg,maxLines=1);Text(song?.artist?:mi.mediaMetadata.artist?.toString().orEmpty(),color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={p.removeMediaItem(i)}){Icon(Icons.Default.Close,"Quitar",tint=secondary)}}}}
     }
     if (showTimer) AlertDialog(onDismissRequest={showTimer=false},title={Text("Apagado automático")},text={Column{Text("Detener después de $timerMins minutos");Slider(value=timerMins.toFloat(),onValueChange={timerMins=it.toInt()},valueRange=5f..180f,steps=34)}},confirmButton={TextButton(onClick={deadline=System.currentTimeMillis()+timerMins*60000L;showTimer=false;toast="Temporizador activado."}){Text("Activar")}},dismissButton={TextButton(onClick={deadline=0;showTimer=false}){Text("Cancelar")}})
     if (outputDialog) androidx.compose.material3.ModalBottomSheet(onDismissRequest={outputDialog=false},containerColor=surface,contentColor=fg) { Text("Salidas de audio",Modifier.padding(horizontal=22.dp,vertical=12.dp),fontSize=22.sp,fontWeight=FontWeight.Bold,color=fg); if(outputNames.isEmpty()) Text("No se detectaron salidas disponibles.",Modifier.padding(22.dp),color=secondary) else outputNames.distinct().forEach{Text("• $it",Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=8.dp),color=fg)}; Text("Para cambiar de salida, utiliza también el selector de audio de Android.",Modifier.padding(22.dp),fontSize=12.sp,color=secondary); Spacer(Modifier.height(18.dp)) }
