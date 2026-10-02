@@ -574,24 +574,20 @@ private fun NegativeMusicApp() {
                     Row(Modifier.fillMaxWidth().padding(top=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
+                        IconButton(onClick={toggleShuffleQueue}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary,modifier=Modifier.size(27.dp))}
                         IconButton(onClick={controller?.let{p->if(p.currentPosition>2000L)p.seekTo(0L)else p.seekToPreviousMediaItem()}}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))}
                         FilledIconButton(onClick={if(playing)controller?.pause()else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))}
                         IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))}
+                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                        Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)}
-                            IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=fg)}
-                        }
-                        Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
-                            IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,"Fila de reproducción",tint=fg)}
-                        }
+                        IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=fg,modifier=Modifier.size(25.dp))}
+                        IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=fg,modifier=Modifier.size(25.dp))}
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
-                    Text("Desliza hacia abajo para ver y editar la letra.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
+                    Text(if(lyricsEditing) "Editando letra" else "Doble toque en la letra para editar.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
                     Box(Modifier.fillMaxWidth().clickable(enabled=lyricsEditing){lyricsEditing=false}.padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={lyricsEditing=true})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
@@ -655,12 +651,12 @@ private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Compo
 }
 
 @Composable private fun HomeTile(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit){
-    Card(modifier.clickable(onClick=onClick),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Icon(icon,null,tint=AccentBlue,modifier=Modifier.size(28.dp));Spacer(Modifier.height(14.dp));Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text(sub,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}}
+    Card(modifier.clickable(onClick=onClick),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Icon(icon,null,tint=if(MaterialTheme.colorScheme.background==Dark)AccentBlue else MaterialTheme.colorScheme.onSurface,modifier=Modifier.size(28.dp));Spacer(Modifier.height(14.dp));Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text(sub,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}}
 }
 @Composable private fun HomeRow(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,secondary:Color,cover:String="",onClick:()->Unit){
     Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=20.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){
         if(cover.isNotBlank()) AsyncImage(model=cover,contentDescription="Portada de $title",modifier=Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
-        else Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(icon,null,tint=AccentBlue)}
+        else Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(icon,null,tint=if(MaterialTheme.colorScheme.background==Dark)AccentBlue else MaterialTheme.colorScheme.onSurface)}
         Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=fg,fontWeight=FontWeight.SemiBold);Text(sub,color=secondary,fontSize=12.sp)};Icon(Icons.Default.ChevronRight,null,tint=secondary)
     }
 }
