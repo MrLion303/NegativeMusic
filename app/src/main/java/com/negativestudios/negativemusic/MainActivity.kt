@@ -136,6 +136,7 @@ private fun NegativeMusicApp() {
     var editTarget by remember { mutableStateOf<Playlist?>(null) }
     var menuSong by remember { mutableStateOf<Song?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
+    var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
     var showQueue by remember { mutableStateOf(false) }
     var showPlayer by remember { mutableStateOf(false) }
     var showTimer by remember { mutableStateOf(false) }
@@ -316,7 +317,7 @@ private fun NegativeMusicApp() {
                     }
                     if(visibleSongs.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)} }
                     items(visibleSongs,key={it.uri}) { s ->
-                        Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
+                        Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).pointerInput(s.uri){var drag=0f;detectHorizontalDragGestures(onHorizontalDrag={change,amount->drag+=amount;change.consume()},onDragEnd={if(drag>72f)queue(s);drag=0f},onDragCancel={drag=0f})}.padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
                             Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
                             Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==now?.uri)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
                             if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
@@ -422,6 +423,20 @@ private fun NegativeMusicApp() {
             }
         }
     }
+    playlistPickerSong?.let { s ->
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest={playlistPickerSong=null},containerColor=surface,contentColor=fg) {
+            Text("Añadir a una Playlist",Modifier.padding(horizontal=22.dp,vertical=14.dp),fontSize=21.sp,fontWeight=FontWeight.ExtraBold,color=fg)
+            if(playlists.isEmpty()) Text("No tienes playlists creadas todavía.",Modifier.padding(22.dp),color=secondary)
+            playlists.forEach { p ->
+                BottomAction(p.name,Icons.Default.QueueMusic,fg){
+                    if(s.uri !in p.songs) saveLists(playlists.map{if(it.id==p.id)it.copy(songs=it.songs+s.uri)else it})
+                    toast="Añadida a "+p.name
+                    playlistPickerSong=null
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
     editTarget?.let { p -> PlaylistDialog("Editar playlist",p.name,p.description,p.cover,{editTarget=null}) { n,d,c -> saveLists(playlists.map{if(it.id==p.id)it.copy(name=n,description=d,cover=c)else it});editTarget=null } }
     menuSong?.let { s -> androidx.compose.material3.ModalBottomSheet(onDismissRequest={menuSong=null},containerColor=surface,contentColor=fg) {
         Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -433,7 +448,7 @@ private fun NegativeMusicApp() {
         if(page.startsWith("playlist:")) BottomAction("Eliminar de esta playlist",Icons.Default.Delete,fg){val pl=playlists.firstOrNull{page=="playlist:"+it.id};if(pl!=null)saveLists(playlists.map{if(it.id==pl.id)it.copy(songs=it.songs.filterNot{s.uri==it})else it});menuSong=null}
         BottomAction(if(s.uri in favorites)"Quitar de favoritos" else "Añadir a favoritos",Icons.Default.Favorite,fg){favorite(s);menuSong=null}
         BottomAction("Crear playlist con esta canción",Icons.Default.Add,fg){addSong=s;createDialog=true;menuSong=null}
-        BottomAction("Añadir a una Playlist",Icons.Default.QueueMusic,fg){addSong=s;menuSong=null;showAddSongsDialog=true}
+        BottomAction("Añadir a una Playlist",Icons.Default.QueueMusic,fg){playlistPickerSong=s;menuSong=null}
         BottomAction("Ir a la fila de reproducción",Icons.Default.QueueMusic,fg){showQueue=true;menuSong=null}
         BottomAction("Apagado automático",Icons.Default.Timer,fg){showTimer=true;menuSong=null}
         Spacer(Modifier.height(20.dp))
