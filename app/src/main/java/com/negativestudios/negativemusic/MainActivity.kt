@@ -99,6 +99,7 @@ private fun scanMusic(context: Context): List<Song> {
 private fun time(ms: Long) = String.format(Locale.getDefault(), "%d:%02d", ms.coerceAtLeast(0) / 60000, (ms.coerceAtLeast(0) / 1000) % 60)
 private fun bytes(n: Long): String = when { n < 1024 -> "$n B"; n < 1024L*1024 -> String.format(Locale.getDefault(), "%.1f KB", n/1024.0); n < 1024L*1024*1024 -> String.format(Locale.getDefault(), "%.1f MB", n/(1024.0*1024)); else -> String.format(Locale.getDefault(), "%.2f GB", n/(1024.0*1024*1024)) }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun NegativeMusicApp() {
     val ctx = LocalContext.current
@@ -407,6 +408,7 @@ private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playli
     (0 until a.length()).map { i -> val o=a.getJSONObject(i);val ss=o.optJSONArray("songs")?:JSONArray();Playlist(o.optString("id"),o.optString("name"),o.optString("description"),o.optString("cover"),(0 until ss.length()).map{ss.getString(it)}) }
 } catch (_:Exception){emptyList()}
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable private fun SongRows(songs:List<Song>,favorites:Set<String>,fg:Color,secondary:Color,current:String?,play:(Song)->Unit,menu:(Song)->Unit,favorite:(Song)->Unit,enqueue:(Song)->Unit,modifier: Modifier = Modifier.fillMaxWidth()) {
     if(songs.isEmpty()) Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)}
     else LazyColumn(modifier,contentPadding=PaddingValues(bottom=12.dp)){items(songs,key={it.uri}){s->Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(s)},onLongClick={menu(s)}).pointerInput(s.uri){var drag=0f;detectHorizontalDragGestures(onHorizontalDrag={change,amount->drag+=amount;change.consume()},onDragEnd={if(drag>72f)enqueue(s);drag=0f},onDragCancel={drag=0f})}.padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
