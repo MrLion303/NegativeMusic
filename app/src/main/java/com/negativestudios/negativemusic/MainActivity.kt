@@ -46,6 +46,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -588,7 +589,7 @@ private fun NegativeMusicApp() {
                     Spacer(Modifier.height(20.dp))
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
                     Text(if(lyricsEditing) "Editando letra" else "Doble toque en la letra para editar.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
-                    Box(Modifier.fillMaxWidth().clickable(enabled=lyricsEditing){lyricsEditing=false}.padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={lyricsEditing=true})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
+                    Box(Modifier.fillMaxWidth().clickable(enabled=lyricsEditing){lyricsEditing=false}.padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={lyricsEditing=true})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
             }
