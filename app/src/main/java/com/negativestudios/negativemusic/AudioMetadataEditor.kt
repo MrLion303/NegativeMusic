@@ -62,14 +62,6 @@ object AudioMetadataEditor {
                 }
             } ?: error("No se pudo abrir el archivo para escritura.")
 
-            resolver.update(
-                audioUri,
-                android.content.ContentValues().apply {
-                    put(android.provider.MediaStore.Audio.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000L)
-                },
-                null,
-                null
-            )
         } finally {
             audioTemp.delete()
             coverTemp?.delete()
