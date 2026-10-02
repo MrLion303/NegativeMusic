@@ -430,6 +430,22 @@ private fun NegativeMusicApp() {
                             }
                         }
                     }
+                    Text("Fuentes",color=Gray,fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+                    LazyColumn(Modifier.fillMaxWidth().heightIn(max=145.dp),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                        item {
+                            val selected=addSongsSource=="Descargas"
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if(selected)AccentBlue.copy(alpha=.16f) else Color.Transparent).clickable{addSongsSource="Descargas"}.padding(horizontal=8.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){
+                                Icon(Icons.Default.Download,null,tint=if(dark)AccentBlue else fg);Spacer(Modifier.width(10.dp));Text("Descargas",color=Color.White,modifier=Modifier.weight(1f));Text("${downloadedSongs.size}",color=Gray)
+                            }
+                        }
+                        items(playlists,key={it.id}) { pl ->
+                            val selected=addSongsSource=="Playlist:"+pl.id
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if(selected)AccentBlue.copy(alpha=.16f) else Color.Transparent).clickable{addSongsSource="Playlist:"+pl.id}.padding(horizontal=8.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){
+                                Icon(Icons.Default.QueueMusic,null,tint=if(dark)AccentBlue else fg);Spacer(Modifier.width(10.dp));Text(pl.name,color=Color.White,modifier=Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis);Text("${pl.songs.size}",color=Gray)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(onClick={showAddSongsDialog=false},modifier=Modifier.weight(1f)) { Text("Cancelar") }
