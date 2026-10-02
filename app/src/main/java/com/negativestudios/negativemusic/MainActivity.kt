@@ -364,10 +364,45 @@ private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playli
 @Composable private fun HomeRow(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,secondary:Color,onClick:()->Unit){
     Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=20.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF102D4A)),contentAlignment=Alignment.Center){Icon(icon,null,tint=AccentBlue)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=fg,fontWeight=FontWeight.SemiBold);Text(sub,color=secondary,fontSize=12.sp)};Icon(Icons.Default.ChevronRight,null,tint=secondary)}
 }
-@Composable private fun PlaylistDialog(title:String,initialName:String,initialDesc:String,initialCover:String,onDismiss:()->Unit,onSave:(String,String,String)->Unit){
-    var name by remember{mutableStateOf(initialName)};var desc by remember{mutableStateOf(initialDesc)};var cover by remember{mutableStateOf(initialCover)}
+@Composable
+private fun PlaylistDialog(title:String,initialName:String,initialDesc:String,initialCover:String,onDismiss:()->Unit,onSave:(String,String,String)->Unit) {
+    var name by remember { mutableStateOf(initialName) }
+    var desc by remember { mutableStateOf(initialDesc) }
+    var cover by remember { mutableStateOf(initialCover) }
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){it?.let{uri->cover=uri.toString()}}
-    AlertDialog(onDismissRequest=onDismiss,title={Text(title)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(name,{name=it},label={Text("Nombre")},singleLine=true);OutlinedTextField(desc,{desc=it},label={Text("Descripción")},minLines=2);OutlinedButton(onClick={picker.launch("image/*")},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Image,null);Spacer(Modifier.width(8.dp));Text(if(cover.isBlank())"Elegir portada" else "Cambiar portada")};if(cover.isNotBlank())Text("Portada seleccionada",color=AccentBlue,fontSize=12.sp)}},confirmButton={TextButton(enabled=name.isNotBlank(),onClick={onSave(name.trim(),desc.trim(),cover)}){Text("Guardar")}},dismissButton={TextButton(onClick=onDismiss){Text("Cancelar")}})
+    androidx.compose.ui.window.Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
+        Surface(modifier=Modifier.fillMaxWidth(0.92f).heightIn(max=640.dp),shape=RoundedCornerShape(26.dp),color=Panel,tonalElevation=10.dp) {
+            Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(AccentBlue.copy(alpha=.18f)),contentAlignment=Alignment.Center) {
+                        Icon(Icons.Default.QueueMusic,null,tint=AccentCyan,modifier=Modifier.size(27.dp))
+                    }
+                    Spacer(Modifier.width(13.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(title,color=Color.White,fontSize=22.sp,fontWeight=FontWeight.ExtraBold)
+                        Text(if(initialName.isBlank()) "Crea un espacio para tu música" else "Personaliza tu colección",color=Gray,fontSize=12.sp)
+                    }
+                    IconButton(onClick=onDismiss){Icon(Icons.Default.Close,"Cerrar",tint=Gray)}
+                }
+                Box(Modifier.fillMaxWidth().height(112.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF102D4A),Color(0xFF10202C)))),contentAlignment=Alignment.Center) {
+                    Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                        Icon(if(cover.isBlank()) Icons.Default.MusicNote else Icons.Default.Image,null,tint=AccentCyan,modifier=Modifier.size(35.dp))
+                        Text(if(cover.isBlank()) "Tu playlist" else "Portada seleccionada",color=Color.White,fontWeight=FontWeight.SemiBold)
+                        Text("Puedes cambiar la portada cuando quieras",color=Gray,fontSize=11.sp)
+                    }
+                }
+                OutlinedTextField(value=name,onValueChange={name=it},modifier=Modifier.fillMaxWidth(),label={Text("Nombre de la playlist")},placeholder={Text("Por ejemplo: Favoritas de noche")},singleLine=true,shape=RoundedCornerShape(14.dp),leadingIcon={Icon(Icons.Default.Edit,null)},colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=AccentBlue,focusedLabelColor=AccentBlue,cursorColor=AccentBlue))
+                OutlinedTextField(value=desc,onValueChange={desc=it},modifier=Modifier.fillMaxWidth(),label={Text("Descripción (opcional)")},placeholder={Text("¿Qué canciones reúne?")},minLines=2,maxLines=3,shape=RoundedCornerShape(14.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=AccentBlue,focusedLabelColor=AccentBlue,cursorColor=AccentBlue))
+                OutlinedButton(onClick={picker.launch("image/*")},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp)) {
+                    Icon(Icons.Default.Image,null);Spacer(Modifier.width(8.dp));Text(if(cover.isBlank()) "Elegir imagen de portada" else "Cambiar imagen de portada")
+                }
+                Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick=onDismiss,modifier=Modifier.weight(1f),shape=RoundedCornerShape(14.dp)){Text("Cancelar")}
+                    Button(onClick={onSave(name.trim(),desc.trim(),cover)},enabled=name.isNotBlank(),modifier=Modifier.weight(1f),shape=RoundedCornerShape(14.dp),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.Check,null);Spacer(Modifier.width(6.dp));Text("Guardar")}
+                }
+            }
+        }
+    }
 }
 
 @Composable
