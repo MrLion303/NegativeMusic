@@ -145,8 +145,8 @@ private fun NegativeMusicApp() {
             songs = withContext(Dispatchers.IO) { scanMusic(ctx) }; loading = false
         } else permission.launch(audioPermission())
     }
-    LaunchedEffect(controller, songs) {
-        val p = controller ?: return@LaunchedEffect
+    DisposableEffect(controller, songs) {
+        val p = controller ?: return@DisposableEffect
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
