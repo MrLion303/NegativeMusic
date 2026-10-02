@@ -25,6 +25,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -310,7 +311,7 @@ private fun NegativeMusicApp() {
                             Text(selectedPlaylist?.description.orEmpty(),Modifier.padding(horizontal=22.dp),color=secondary,maxLines=2,overflow=TextOverflow.Ellipsis)
                             val playlistDuration = visibleSongs.sumOf { it.duration }
                             Text("${visibleSongs.size} canciones · ${time(playlistDuration)}",Modifier.padding(horizontal=22.dp,top=4.dp),color=secondary,fontSize=12.sp)
-                            Row(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
+                            Row(Modifier.fillMaxWidth().padding(14.dp, 10.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
                                 Button(onClick={if(visibleSongs.isNotEmpty())play(visibleSongs) else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,null);Spacer(Modifier.width(6.dp));Text("Reproducir")}
                                 OutlinedButton(onClick={selectedSongUris=emptySet();addSongsSearch="";addSongsSource="Selecciona";showAddSongsDialog=true},modifier=Modifier.weight(1f)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Añadir canción")}
                                 IconButton(onClick={if(visibleSongs.isNotEmpty()){shuffle=true;play(visibleSongs.shuffled())}else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.size(44.dp)){Icon(Icons.Default.Shuffle,"Modo aleatorio",tint=if(shuffle)AccentBlue else fg)}
