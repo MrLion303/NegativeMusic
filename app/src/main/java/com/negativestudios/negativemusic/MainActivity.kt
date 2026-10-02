@@ -307,7 +307,7 @@ private fun NegativeMusicApp() {
                             items(playlists,key={it.id}) { p -> HomeRow(p.name,"${p.songs.size} canciones",Icons.Default.QueueMusic,fg,secondary,p.cover){playlistOrigin=page;page="playlist:"+p.id} }
                         } else {
                             item { Text("Tus canciones favoritas",Modifier.padding(start=20.dp,top=12.dp,bottom=6.dp),color=secondary,fontSize=13.sp) }
-                            items(songs.filter{it.uri in favorites},key={it.uri}) { song -> Row(Modifier.fillMaxWidth().clickable{play(songs.filter{it.uri in favorites},song);showPlayer=true}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.MusicNote,null,tint=AccentBlue)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(song.title,color=fg,maxLines=1);Text(song.artist,color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={menuSong=song}){Icon(Icons.Default.MoreVert,null,tint=secondary)}} }
+                            items(songs.filter{it.uri in favorites},key={it.uri}) { song -> Row(Modifier.fillMaxWidth().clickable{play(songs.filter{it.uri in favorites},song);showPlayer=true}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.MusicNote,null,tint=if(dark)AccentBlue else fg)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(song.title,color=fg,maxLines=1);Text(song.artist,color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={menuSong=song}){Icon(Icons.Default.MoreVert,null,tint=secondary)}} }
                         }
                     }
                 }
@@ -346,7 +346,7 @@ private fun NegativeMusicApp() {
                      items(visibleSongs,key={it.uri}) { s ->
                          SwipeQueueContainer(s,{queue(s)}) {
                              Row(Modifier.fillMaxWidth().combinedClickable(onClick={play(visibleSongs,s);showPlayer=true},onLongClick={menuSong=s}).padding(horizontal=16.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically){
-                                 Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(28.dp))}
+                                 Box(Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(28.dp))}
                                  Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(s.title,color=if(s.uri==now?.uri)AccentBlue else fg,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${s.artist} · ${time(s.duration)}",color=secondary,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
                                  if(s.uri in favorites)Icon(Icons.Default.Favorite,null,tint=AccentBlue,modifier=Modifier.size(16.dp))
                                  IconButton(onClick={menuSong=s}){Icon(Icons.Default.MoreVert,"Más opciones",tint=secondary)}
@@ -621,7 +621,7 @@ private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Compo
     val swipeScope = rememberCoroutineScope()
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
         Box(Modifier.matchParentSize().background(AccentBlue.copy(alpha=(offset.value/110f).coerceIn(0f,.22f))),contentAlignment=Alignment.CenterStart) {
-            Icon(Icons.Default.QueueMusic,null,tint=AccentBlue.copy(alpha=(offset.value/80f).coerceIn(0f,1f)),modifier=Modifier.padding(start=18.dp).size(24.dp))
+            Icon(Icons.Default.QueueMusic,null,tint=if(MaterialTheme.colorScheme.background==Dark) AccentBlue.copy(alpha=(offset.value/80f).coerceIn(0f,1f)) else MaterialTheme.colorScheme.onSurface.copy(alpha=(offset.value/80f).coerceIn(0f,1f)),modifier=Modifier.padding(start=18.dp).size(24.dp))
         }
         Box(Modifier.fillMaxWidth().offset { IntOffset(offset.value.roundToInt(),0) }.pointerInput(song.uri) {
             detectHorizontalDragGestures(
