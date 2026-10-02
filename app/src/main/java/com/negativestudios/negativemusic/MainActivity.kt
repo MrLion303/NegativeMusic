@@ -482,10 +482,13 @@ private fun NegativeMusicApp() {
     if (showPlayer && now != null) {
         val playerScroll = rememberScrollState()
         LaunchedEffect(seekFeedback) { if(seekFeedback!=0){ delay(900); seekFeedback=0 } }
-        fun seekBy(delta: Long) {
+        fun seekBy(delta: Long, side: Int) {
             val p=controller ?: return
             p.seekTo((p.currentPosition+delta*1000L).coerceIn(0L,p.duration.coerceAtLeast(0L)))
-            seekFeedback=(seekFeedback+delta.toInt()).coerceIn(-120,120)
+            val sameSide=seekFeedbackSide==side
+            seekFeedbackSide=side
+            seekFeedback=if(sameSide)(seekFeedback+delta.toInt()).coerceIn(-120,120) else delta.toInt().coerceIn(-120,120)
+            seekRippleKey++
         }
         androidx.compose.ui.window.Dialog(onDismissRequest={showPlayer=false;playerDrag=0f},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
             Surface(Modifier.fillMaxSize().offset(y=playerDrag.dp),color=bg) {
@@ -503,10 +506,10 @@ private fun NegativeMusicApp() {
                     Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF123C67),Color(0xFF071018))))) {
                         Icon(Icons.Default.Album,null,tint=AccentCyan,modifier=Modifier.size(100.dp).align(Alignment.Center))
                         Row(Modifier.fillMaxSize()){
-                            Box(Modifier.weight(1f).fillMaxHeight().pointerInput(Unit){detectTapGestures(onDoubleTap={seekBy(-5)})})
-                            Box(Modifier.weight(1f).fillMaxHeight().pointerInput(Unit){detectTapGestures(onDoubleTap={seekBy(5)})})
+                            Box(Modifier.weight(1f).fillMaxHeight().pointerInput(Unit){detectTapGestures(onDoubleTap={seekBy(-5,-1)})})
+                            Box(Modifier.weight(1f).fillMaxHeight().pointerInput(Unit){detectTapGestures(onDoubleTap={seekBy(5,1)})})
                         }
-                        if(seekFeedback!=0) Box(Modifier.align(Alignment.Center).clip(RoundedCornerShape(18.dp)).background(Color.Black.copy(alpha=.68f)).padding(horizontal=20.dp,vertical=13.dp)){Text(if(seekFeedback>0)"+$seekFeedback" else "$seekFeedback",color=Color.White,fontSize=27.sp,fontWeight=FontWeight.ExtraBold)}
+                        if(seekFeedback!=0) { val ripple=remember(seekRippleKey){Animatable(0f)}; LaunchedEffect(seekRippleKey){ripple.snapTo(0f);ripple.animateTo(1f,tween(520))}; val sideModifier=if(seekFeedbackSide<0)Modifier.align(Alignment.CenterStart)else Modifier.align(Alignment.CenterEnd); Box(sideModifier.padding(horizontal=42.dp).size(82.dp),contentAlignment=Alignment.Center){ Box(Modifier.matchParentSize().graphicsLayer{scaleX=1f+ripple.value*.8f;scaleY=1f+ripple.value*.8f;alpha=1f-ripple.value}.border(2.dp,AccentCyan.copy(alpha=.45f),CircleShape)); Box(Modifier.size(42.dp).graphicsLayer{scaleX=1f+ripple.value*.25f;scaleY=1f+ripple.value*.25f;alpha=1f-ripple.value*.55f}.background(AccentBlue.copy(alpha=.2f),CircleShape)); Text(if(seekFeedback>0)"+$seekFeedback" else "$seekFeedback",color=Color.White,fontSize=27.sp,fontWeight=FontWeight.ExtraBold) } }
                     }
                     Text("Doble toque: −5 s / +5 s · acumulado hasta 120 s",color=secondary,fontSize=10.sp,modifier=Modifier.padding(top=6.dp))
                     Spacer(Modifier.height(18.dp))
@@ -515,7 +518,7 @@ private fun NegativeMusicApp() {
                         IconButton(onClick={favorite(now!!)} ){Icon(Icons.Default.Favorite,null,tint=if(now!!.uri in favorites)AccentBlue else secondary)}
                     }
                     Spacer(Modifier.height(18.dp))
-                    Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
+                    Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.height(14.dp),thumb={Box(Modifier.size(8.dp).background(AccentBlue,CircleShape))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
@@ -526,12 +529,12 @@ private fun NegativeMusicApp() {
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
                         Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)};Text("Aleatorio",color=secondary,fontSize=10.sp)
-                            IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=fg)};Text("Dispositivos",color=secondary,fontSize=10.sp)
+                            IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary)}
+                            IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=fg)}
                         }
                         Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}};Text("Bucle",color=secondary,fontSize=10.sp)
-                            IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,"Fila de reproducción",tint=fg)};Text("Fila",color=secondary,fontSize=10.sp)
+                            IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary);if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
+                            IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,"Fila de reproducción",tint=fg)}
                         }
                     }
                     Spacer(Modifier.height(20.dp))
