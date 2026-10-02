@@ -444,7 +444,6 @@ private fun NegativeMusicApp() {
                 if(qp==null||qp.mediaItemCount==0) Box(Modifier.fillMaxWidth().height(180.dp),contentAlignment=Alignment.Center){Text("La fila está vacía.",color=secondary)}
                 else LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp).padding(bottom=20.dp)){items((0 until qp.mediaItemCount).toList(),key={it}){i->val mi=qp.getMediaItemAt(i);val song=songs.firstOrNull{it.uri==mi.localConfiguration?.uri?.toString()};Row(Modifier.fillMaxWidth().clickable{qp.seekTo(i,0);qp.play();showQueue=false}.padding(horizontal=18.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(Icons.Default.Album,null,tint=AccentBlue)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(song?.title?:mi.mediaMetadata.title?.toString().orEmpty(),color=if(i==qp.currentMediaItemIndex)AccentBlue else fg,maxLines=1);Text(song?.artist?:mi.mediaMetadata.artist?.toString().orEmpty(),color=secondary,fontSize=12.sp,maxLines=1)};IconButton(onClick={qp.removeMediaItem(i)}){Icon(Icons.Default.Close,"Quitar",tint=secondary)}}}}
             }
-            }
         }
     }
     if (showQueue && !showPlayer) androidx.compose.material3.ModalBottomSheet(onDismissRequest={showQueue=false},containerColor=surface,contentColor=fg) {
