@@ -250,7 +250,6 @@ private fun NegativeMusicApp() {
                         }
                     }
                     item { HomeRow("Descargas","${downloadedSongs.size} canciones descargadas",Icons.Default.Download,fg,secondary){page="Descargas"} }
-                    item { HomeRow("Canciones favoritas","${favorites.size} canciones",Icons.Default.Favorite,fg,secondary){page="Favoritos"} }
                     if(playlists.isEmpty()) item { Text("Tus playlists aparecerán aquí cuando crees una.",Modifier.padding(22.dp),color=secondary) }
                     items(playlists,key={it.id}) { p -> HomeRow(p.name,"${p.songs.size} canciones",Icons.Default.QueueMusic,fg,secondary){page="playlist:"+p.id} }
                 }
