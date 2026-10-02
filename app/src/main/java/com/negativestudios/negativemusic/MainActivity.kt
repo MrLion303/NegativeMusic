@@ -47,6 +47,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -162,6 +164,7 @@ private fun NegativeMusicApp() {
     var seekRippleKey by remember { mutableIntStateOf(0) }
     var playerDrag by remember { mutableFloatStateOf(0f) }
     var playerDismissing by remember { mutableStateOf(false) }
+    var playlistMenuOpen by remember { mutableStateOf(false) }
     var lyricsEditing by remember { mutableStateOf(false) }
     val toastOffset = remember { Animatable(0f) }
     var toastDragging by remember { mutableStateOf(false) }
@@ -323,7 +326,17 @@ private fun NegativeMusicApp() {
                 page.startsWith("playlist:") -> LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=14.dp)) {
                     item {
                       Column(Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth().padding(start=14.dp,end=14.dp,top=8.dp),verticalAlignment=Alignment.CenterVertically){IconButton(onClick={page=playlistOrigin}){Icon(Icons.Default.ArrowBack,"Volver",tint=fg)};Spacer(Modifier.weight(1f));IconButton(onClick={editTarget=selectedPlaylist}){Icon(Icons.Default.Edit,"Editar playlist",tint=fg)}}
+                        Row(Modifier.fillMaxWidth().padding(start=14.dp,end=14.dp,top=8.dp),verticalAlignment=Alignment.CenterVertically){
+                            IconButton(onClick={page=playlistOrigin}){Icon(Icons.Default.ArrowBack,"Volver",tint=fg)}
+                            Spacer(Modifier.weight(1f))
+                            Box{
+                                IconButton(onClick={playlistMenuOpen=true}){Icon(Icons.Default.MoreVert,"Opciones de playlist",tint=if(dark)AccentBlue else fg)}
+                                DropdownMenu(expanded=playlistMenuOpen,onDismissRequest={playlistMenuOpen=false}){
+                                    DropdownMenuItem(text={Text("Editar playlist")},leadingIcon={Icon(Icons.Default.Edit,null,tint=if(dark)AccentBlue else fg)},onClick={playlistMenuOpen=false;editTarget=selectedPlaylist})
+                                    DropdownMenuItem(text={Text("Eliminar playlist")},leadingIcon={Icon(Icons.Default.Delete,null,tint=if(dark)AccentBlue else fg)},onClick={playlistMenuOpen=false;playlistDeleteTarget=selectedPlaylist})
+                                }
+                            }
+                        }
                         Column {
                             Box(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=5.dp),contentAlignment=Alignment.Center){
                                 if(selectedPlaylist?.cover?.isNotBlank()==true) AsyncImage(model=selectedPlaylist?.cover,contentDescription="Portada de playlist",modifier=Modifier.fillMaxWidth(.68f).aspectRatio(1f).clip(RoundedCornerShape(18.dp)),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
@@ -334,7 +347,7 @@ private fun NegativeMusicApp() {
                             val playlistDuration = visibleSongs.sumOf { it.duration }
                             Text("${visibleSongs.size} canciones · ${time(playlistDuration)}",Modifier.padding(start=22.dp,end=22.dp,top=4.dp),color=secondary,fontSize=12.sp)
                              Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
-                                 ThemedIconButton(dark,Icons.Default.MoreVert,"Opciones de playlist",if(dark)AccentBlue else fg){playlistDeleteTarget=selectedPlaylist}
+                                 ThemedIconButton(dark,Icons.Default.MoreVert,"Opciones de playlist",if(dark)AccentBlue else fg){playlistMenuOpen=true}
                                  ThemedIconButton(dark,Icons.Default.Shuffle,"Modo aleatorio",if(dark)AccentBlue else fg){if(visibleSongs.isNotEmpty()){shuffle=true;play(visibleSongs.shuffled())}else toast="Esta playlist aún no tiene canciones."}
                                  ThemedIconButton(dark,Icons.Default.Add,"Añadir canción",if(dark)AccentBlue else fg){selectedSongUris=emptySet();addSongsSearch="";addSongsSource="";showAddSongsDialog=true}
                                  Spacer(Modifier.weight(1f))
@@ -372,7 +385,7 @@ private fun NegativeMusicApp() {
             }
             }
     if (toast.isNotBlank()) {
-        Box(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp).offset{IntOffset(toastOffset.value.roundToInt(),0)}.clip(RoundedCornerShape(14.dp)).background(if(toastDragging) Color.Transparent else if(dark)Panel else Color.White).pointerInput(toast){
+        Box(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp).offset{IntOffset(toastOffset.value.roundToInt(),0)}.clip(RoundedCornerShape(14.dp)).background(Color.Transparent).pointerInput(toast){
             detectHorizontalDragGestures(
                 onHorizontalDrag={change,amount->change.consume();toastDragging=true;scope.launch{toastOffset.snapTo(toastOffset.value+amount)}},
                 onDragEnd={toastDragging=false;if(abs(toastOffset.value)>90f){val target=if(toastOffset.value>0f)900f else -900f;scope.launch{toastOffset.animateTo(target,tween(220));toast=""}}else scope.launch{toastOffset.animateTo(0f,tween(180))}},
@@ -385,10 +398,27 @@ private fun NegativeMusicApp() {
                 Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF102C4A)).clickable{showPlayer=true}.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
                     Icon(Icons.Default.Album,null,tint=if(dark) AccentBlue else fg,modifier=Modifier.size(38.dp))
                     Spacer(Modifier.width(9.dp))
-                    Column(Modifier.weight(1f)) { Text(now!!.title,color=Color.White,fontWeight=FontWeight.SemiBold,maxLines=1); Text(now!!.artist,color=Color.LightGray,fontSize=11.sp,maxLines=1) }
-                    IconButton(onClick={controller?.let { p -> if(p.currentPosition>2000L) p.seekTo(0L) else p.seekToPreviousMediaItem() }}){Icon(Icons.Default.SkipPrevious,"Canción anterior",tint=Color.White)}
+                    Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))){
+                        val marqueeState=rememberScrollState()
+                        LaunchedEffect(now!!.uri, now!!.title){
+                            marqueeState.scrollTo(0)
+                            while(true){
+                                delay(1200)
+                                if(marqueeState.maxValue>0){
+                                    marqueeState.animateScrollTo(marqueeState.maxValue,tween(1800))
+                                    delay(700)
+                                    marqueeState.scrollTo(0)
+                                } else delay(1000)
+                            }
+                        }
+                        Column(Modifier.fillMaxWidth()){
+                            Row(Modifier.fillMaxWidth().horizontalScroll(marqueeState),verticalAlignment=Alignment.CenterVertically){
+                                Text(now!!.title,color=Color.White,fontWeight=FontWeight.SemiBold,maxLines=1,softWrap=false)
+                            }
+                            Text(now!!.artist,color=Color.LightGray,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        }
+                    }
                     IconButton(onClick={if(controller?.isPlaying==true)controller?.pause() else controller?.play()}){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,tint=Color.White)}
-                    IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=Color.White)}
                     IconButton(onClick={outputNames=try { val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager; am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()} } catch (_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=Color.White)}
                 }
                 Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.fillMaxWidth().height(14.dp),thumb={Box(Modifier.size(7.dp).background(AccentBlue,CircleShape))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
@@ -535,24 +565,23 @@ private fun NegativeMusicApp() {
             seekFeedback=if(sameSide)(seekFeedback+delta.toInt()).coerceIn(-120,120) else delta.toInt().coerceIn(-120,120)
             seekRippleKey++
         }
-        val playerDismissOffset by androidx.compose.animation.core.animateFloatAsState(if(playerDismissing) 1000f else 0f,animationSpec=tween(220),label="playerDismiss")
         val playerNestedConnection=remember(playerScroll){
             object: NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    if(available.y>0f && playerScroll.value==0 && !playerDismissing){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); if(playerDrag>8f) return Offset(0f,available.y) }
+                    if(available.y>0f && playerScroll.value==0 && !playerDismissing){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); return Offset(0f,available.y) }
                     return Offset.Zero
                 }
                 override suspend fun onPreFling(available: Velocity): Velocity {
-                    if(playerDrag>32f){ playerDismissing=true; scope.launch{ delay(230); showPlayer=false; playerDismissing=false; playerDrag=0f } } else if(playerDrag>0f) playerDrag=0f
+                    if(playerDrag>32f){ playerDismissing=true; showPlayer=false; playerDismissing=false; playerDrag=0f } else if(playerDrag>0f) playerDrag=0f
                     return Velocity.Zero
                 }
             }
         }
         androidx.compose.ui.window.Dialog(onDismissRequest={showPlayer=false;playerDrag=0f},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
-             Surface(Modifier.fillMaxSize().nestedScroll(playerNestedConnection).graphicsLayer { translationY = if(playerDismissing) playerDismissOffset else playerDrag },color=bg) {
+             Surface(Modifier.fillMaxSize().nestedScroll(playerNestedConnection).graphicsLayer { translationY = playerDrag },color=bg) {
                  Column(Modifier.fillMaxSize().verticalScroll(playerScroll).padding(horizontal=24.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-                        IconButton(onClick={showPlayer=false}){Icon(Icons.Default.KeyboardArrowDown,"Minimizar",tint=fg,modifier=Modifier.size(30.dp))}
+                        IconButton(onClick={showPlayer=false;playerDrag=0f;playerDismissing=false}){Icon(Icons.Default.KeyboardArrowDown,"Minimizar",tint=fg,modifier=Modifier.size(30.dp))}
                         Spacer(Modifier.weight(1f));Text("REPRODUCIENDO",color=secondary,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f))
                         IconButton(onClick={menuSong=now}){Icon(Icons.Default.MoreVert,"Opciones de la canción",tint=fg)}
                     }
@@ -571,25 +600,27 @@ private fun NegativeMusicApp() {
                         IconButton(onClick={favorite(now!!)} ){Icon(Icons.Default.Favorite,null,tint=if(now!!.uri in favorites)AccentBlue else secondary)}
                     }
                     Spacer(Modifier.height(18.dp))
-                    Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.height(14.dp),thumb={Box(Modifier.size(14.dp).background(AccentBlue,CircleShape))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
+                    Slider(value=if(duration>0)(position.toFloat()/duration).coerceIn(0f,1f) else 0f,onValueChange={controller?.seekTo((it*duration).toLong())},modifier=Modifier.height(14.dp),thumb={Box(Modifier.size(7.dp).background(AccentBlue,CircleShape))},colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue))
                     Row(Modifier.fillMaxWidth().padding(top=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(time(position),color=secondary,fontSize=11.sp);Text(time(duration),color=secondary,fontSize=11.sp)}
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                        IconButton(onClick={toggleShuffleQueue()}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary,modifier=Modifier.size(27.dp))}
+                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
                         IconButton(onClick={controller?.let{p->if(p.currentPosition>2000L)p.seekTo(0L)else p.seekToPreviousMediaItem()}}){Icon(Icons.Default.SkipPrevious,null,tint=fg,modifier=Modifier.size(34.dp))}
                         FilledIconButton(onClick={if(playing)controller?.pause()else controller?.play()},modifier=Modifier.size(70.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,modifier=Modifier.size(36.dp))}
                         IconButton(onClick={controller?.seekToNextMediaItem()}){Icon(Icons.Default.SkipNext,null,tint=fg,modifier=Modifier.size(34.dp))}
-                        IconButton(onClick={controller?.let{p->p.repeatMode=when(repeat){Player.REPEAT_MODE_OFF->Player.REPEAT_MODE_ALL;Player.REPEAT_MODE_ALL->Player.REPEAT_MODE_ONE;else->Player.REPEAT_MODE_OFF}}}){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Repeat,null,tint=if(repeat!=Player.REPEAT_MODE_OFF)AccentBlue else secondary,modifier=Modifier.size(27.dp));if(repeat==Player.REPEAT_MODE_ONE)Text("1",color=AccentBlue,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center))}}
+                        IconButton(onClick={toggleShuffleQueue}){Icon(Icons.Default.Shuffle,null,tint=if(shuffle)AccentBlue else secondary,modifier=Modifier.size(27.dp))}
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                        IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=fg,modifier=Modifier.size(25.dp))}
-                        IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=fg,modifier=Modifier.size(25.dp))}
+                        IconButton(onClick={showQueue=true}){Icon(Icons.Default.QueueMusic,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}
+                        Spacer(Modifier.width(70.dp))
+                        IconButton(onClick={outputNames=try{val am=ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager;am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map{it.productName.toString()}}catch(_:Exception){emptyList()};outputDialog=true}){Icon(Icons.Default.Speaker,null,tint=if(dark)AccentBlue else fg,modifier=Modifier.size(25.dp))}
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("Letra",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.fillMaxWidth())
                     Text(if(lyricsEditing) "Editando letra" else "Doble toque en la letra para editar.",color=secondary,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(top=3.dp,bottom=8.dp))
-                    Box(Modifier.fillMaxWidth().clickable(enabled=lyricsEditing){lyricsEditing=false}.padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.pointerInput(lyricsEditing){detectTapGestures(onDoubleTap={lyricsEditing=true})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
+                    val lyricsFocusRequester = remember { FocusRequester() }
+                    Box(Modifier.fillMaxWidth().padding(vertical=2.dp)){ OutlinedTextField(value=lyricsText,onValueChange={if(lyricsEditing){lyricsText=it;prefs.edit().putString("lyrics_${now!!.uri}",it).apply()}},readOnly=!lyricsEditing,modifier=Modifier.fillMaxWidth().focusRequester(lyricsFocusRequester).onFocusChanged{if(!it.isFocused && lyricsEditing) lyricsEditing=false}.pointerInput(Unit){detectTapGestures(onDoubleTap={lyricsEditing=true;scope.launch{lyricsFocusRequester.requestFocus()}})}.heightIn(min=240.dp),placeholder={Text("Escribe o pega aquí la letra de esta canción")},minLines=10,maxLines=18,colors=OutlinedTextFieldDefaults.colors(focusedTextColor=fg,unfocusedTextColor=fg,disabledTextColor=fg,focusedContainerColor=bg,unfocusedContainerColor=bg,focusedBorderColor=AccentBlue,unfocusedBorderColor=secondary,cursorColor=AccentBlue)) }
                     Spacer(Modifier.height(32.dp))
                 }
             }
@@ -608,7 +639,7 @@ private fun NegativeMusicApp() {
 
 @Composable private fun ThemedIconButton(dark:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,description:String,tint:Color,onClick:()->Unit){ IconButton(onClick=onClick,modifier=Modifier.size(44.dp)){ Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(if(dark)AccentBlue.copy(alpha=.15f) else Color.Transparent),contentAlignment=Alignment.Center){ Icon(icon,description,tint=tint,modifier=Modifier.size(23.dp)) } } }
 
-@Composable private fun BottomAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=22.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=fg);Spacer(Modifier.width(18.dp));Text(label,color=fg,fontSize=15.sp)}}
+@Composable private fun BottomAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=22.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=if(fg==Color.White) AccentBlue else fg);Spacer(Modifier.width(18.dp));Text(label,color=fg,fontSize=15.sp)}}
 
 private fun readPlaylists(prefs: android.content.SharedPreferences): List<Playlist> = try {
     val a=JSONArray(prefs.getString("playlists","[]")?: "[]")
@@ -787,7 +818,7 @@ private fun SettingsPage(
                                     Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
                                         Text("%+d".format(value.toInt()),color=AccentBlue,fontSize=13.sp,fontWeight=FontWeight.Bold)
                                         Box(Modifier.height(270.dp).fillMaxWidth(),contentAlignment=Alignment.Center) {
-                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(270.dp).height(46.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
+                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(270.dp).height(270.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
                                         }
                                         Text(frequencies[index],color=sec,fontSize=11.sp,fontWeight=FontWeight.SemiBold)
                                     }
