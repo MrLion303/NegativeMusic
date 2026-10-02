@@ -14,12 +14,14 @@ class MusicPlaybackService : MediaSessionService() {
             setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             setHandleAudioBecomingNoisy(true)
         }
+        PlaybackAudioEffects.attach(this, player.audioSessionId)
         session = MediaSession.Builder(this, player).build()
     }
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
     override fun onDestroy() {
         session?.run { player.release(); release() }
         session = null
+        PlaybackAudioEffects.release()
         super.onDestroy()
     }
 }
