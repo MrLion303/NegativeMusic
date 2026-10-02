@@ -133,7 +133,7 @@ private fun NegativeMusicApp() {
     var showAddSongsDialog by remember { mutableStateOf(false) }
     var selectedSongUris by remember { mutableStateOf<Set<String>>(emptySet()) }
     var addSongsSearch by remember { mutableStateOf("") }
-    var addSongsSource by remember { mutableStateOf("Todo") }
+    var addSongsSource by remember { mutableStateOf("Selecciona") }
     var editTarget by remember { mutableStateOf<Playlist?>(null) }
     var menuSong by remember { mutableStateOf<Song?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
@@ -370,7 +370,7 @@ private fun NegativeMusicApp() {
         val currentPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
         val folderNames = songs.map { it.path.substringBeforeLast("/", "Música").substringAfterLast("/") }.distinct().sorted()
         val sourceUris = when {
-            addSongsSource == "Todo" -> null
+            addSongsSource == "Selecciona" -> emptySet()
             addSongsSource.startsWith("Playlist:") -> playlists.firstOrNull { it.id == addSongsSource.removePrefix("Playlist:") }?.songs?.toSet()
             else -> songs.filter { it.path.substringBeforeLast("/", "Música").substringAfterLast("/") == addSongsSource }.map { it.uri }.toSet()
         }
@@ -386,17 +386,16 @@ private fun NegativeMusicApp() {
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){
-                        FilterChip(selected=addSongsSource=="Todo",onClick={addSongsSource="Todo"},label={Text("Todo")})
                         folderNames.forEach { folder -> FilterChip(selected=addSongsSource==folder,onClick={addSongsSource=folder},label={Text(folder,maxLines=1,overflow=TextOverflow.Ellipsis)}) }
                         playlists.forEach { pl -> FilterChip(selected=addSongsSource=="Playlist:"+pl.id,onClick={addSongsSource="Playlist:"+pl.id},label={Text(pl.name,maxLines=1,overflow=TextOverflow.Ellipsis)}) }
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value=addSongsSearch,onValueChange={addSongsSearch=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Buscar en tu música")},leadingIcon={Icon(Icons.Default.Search,null)},shape=RoundedCornerShape(14.dp))
                     Spacer(Modifier.height(8.dp))
-                    Text(if(candidates.isEmpty()) "No se encontraron canciones." else "${selectedSongUris.size} seleccionadas · ${candidates.size} disponibles", color=Gray, fontSize=12.sp)
+                    Text(if(addSongsSource=="Selecciona") "Elige una carpeta o playlist para ver sus canciones." else if(candidates.isEmpty()) "No se encontraron canciones." else "${selectedSongUris.size} seleccionadas · ${candidates.size} disponibles", color=Gray, fontSize=12.sp)
                     Spacer(Modifier.height(6.dp))
                     if (candidates.isEmpty()) {
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) { Text(if(songs.isEmpty()) "Primero actualiza la biblioteca para detectar música." else "Prueba con otro título o artista.", color=Gray) }
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) { Text(if(songs.isEmpty()) "Primero actualiza la biblioteca para detectar música." else if(addSongsSource=="Selecciona") "Selecciona una carpeta o playlist arriba." else "Prueba con otro título o artista.", color=Gray) }
                     } else {
                         LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(3.dp)) {
                             items(candidates, key={it.uri}) { song ->
