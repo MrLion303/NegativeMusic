@@ -13,18 +13,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "0.1.0"
     }
-    signingConfigs {
-        create("ciDebug") {
-            storeFile = file("${rootProject.projectDir}/.github/keystore/negative-music-debug.jks")
-            storePassword = System.getenv("NEGATIVE_KEYSTORE_PASSWORD") ?: "NegativeMusicDebug2026!"
-            keyAlias = "negative-music"
-            keyPassword = System.getenv("NEGATIVE_KEYSTORE_PASSWORD") ?: "NegativeMusicDebug2026!"
-        }
-    }
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("ciDebug")
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
