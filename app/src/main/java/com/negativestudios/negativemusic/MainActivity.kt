@@ -388,6 +388,7 @@ private fun NegativeMusicApp() {
         }.padding(horizontal=16.dp,vertical=10.dp)
         ){Text(toast,color=if(dark)Color.White else Color(0xFF171717),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)}
     }
+    if (playlistDeleteTarget != null) { val target=playlistDeleteTarget!!; AlertDialog(onDismissRequest={playlistDeleteTarget=null},title={Text("Borrar playlist")},text={Text("¿Seguro que quieres borrar \"${target.name}\"? Esta acción no se puede deshacer.")},confirmButton={TextButton(onClick={saveLists(playlists.filterNot{it.id==target.id});if(page=="playlist:"+target.id)page=playlistOrigin;playlistDeleteTarget=null;toast="Playlist eliminada."}){Text("Borrar")}},dismissButton={TextButton(onClick={playlistDeleteTarget=null}){Text("Cancelar")}}) }
     if (createDialog) PlaylistDialog("Crear playlist","","","",{createDialog=false}) { n,d,c -> val p=Playlist(System.currentTimeMillis().toString(),n,d,c,addSong?.let{listOf(it.uri)}?: emptyList());saveLists(playlists+p);addSong=null;createDialog=false;page="playlist:"+p.id }
     if (showAddSongsDialog) {
         val currentPlaylist = playlists.firstOrNull { page == "playlist:" + it.id }
@@ -704,13 +705,13 @@ private fun SettingsPage(
                             Text("Ecualizador",color=fg,fontSize=18.sp,fontWeight=FontWeight.Bold)
                             val presets=listOf("Normal" to listOf(0,0,0,0,0),"Rock" to listOf(5,3,-1,3,5),"Pop" to listOf(-2,2,4,2,-1),"Bajos" to listOf(7,5,2,0,0),"Voz" to listOf(-2,0,3,4,3))
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){presets.forEach{(name,values)->FilterChip(selected=eqBands.map{it.toInt()}==values,onClick={values.forEachIndexed{index,value->onBand(index,value.toFloat())}},label={Text(name)})}}
-                            Row(Modifier.fillMaxWidth().height(230.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().height(255.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
                                 val frequencies=listOf("60","230","910","3.6k","14k")
                                 eqBands.forEachIndexed { index,value ->
                                     Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
                                         Text("%+d".format(value.toInt()),color=AccentBlue,fontSize=13.sp,fontWeight=FontWeight.Bold)
-                                        Box(Modifier.height(175.dp).fillMaxWidth(),contentAlignment=Alignment.Center) {
-                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(175.dp).height(42.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
+                                        Box(Modifier.height(210.dp).fillMaxWidth(),contentAlignment=Alignment.Center) {
+                                            Slider(value=value,onValueChange={onBand(index,it)},valueRange=-15f..15f,steps=29,modifier=Modifier.width(210.dp).height(42.dp).rotate(-90f),colors=SliderDefaults.colors(thumbColor=AccentBlue,activeTrackColor=AccentBlue,inactiveTrackColor=AccentCyan.copy(alpha=.18f)))
                                         }
                                         Text(frequencies[index],color=sec,fontSize=11.sp,fontWeight=FontWeight.SemiBold)
                                     }
