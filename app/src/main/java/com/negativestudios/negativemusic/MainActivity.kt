@@ -502,6 +502,8 @@ page == "Favoritos" -> Column(Modifier.fillMaxSize()) { Text("Tus canciones favo
 
     if (showPlayer && now != null) {
         val playerScroll = rememberScrollState()
+        val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+        LaunchedEffect(imeVisible) { if(!imeVisible && lyricsEditing && lyricsText.isNotBlank()) lyricsEditing=false }
         LaunchedEffect(seekFeedback) { if(seekFeedback!=0){ delay(900); seekFeedback=0 } }
         fun seekBy(delta: Long, side: Int) {
             val p=controller ?: return
