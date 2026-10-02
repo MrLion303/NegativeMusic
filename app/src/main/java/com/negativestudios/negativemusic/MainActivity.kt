@@ -292,6 +292,7 @@ private fun NegativeMusicApp() {
                 }
                 page.startsWith("playlist:") -> LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=14.dp)) {
                     item {
+                      Column(Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth().padding(start=14.dp,end=14.dp,top=8.dp),verticalAlignment=Alignment.CenterVertically){IconButton(onClick={page=playlistOrigin}){Icon(Icons.Default.ArrowBack,"Volver",tint=fg)};Spacer(Modifier.weight(1f));IconButton(onClick={editTarget=selectedPlaylist}){Icon(Icons.Default.Edit,"Editar playlist",tint=fg)}}
                         Column {
                             Box(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=5.dp),contentAlignment=Alignment.Center){
@@ -305,6 +306,7 @@ private fun NegativeMusicApp() {
                                 OutlinedButton(onClick={selectedSongUris=emptySet();addSongsSearch="";showAddSongsDialog=true},modifier=Modifier.weight(1f)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Añadir canción")}
                             }
                         }
+                      }
                     }
                     if(visibleSongs.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(28.dp),contentAlignment=Alignment.Center){Text("Todavía no hay canciones aquí.",color=secondary)} }
                     items(visibleSongs,key={it.uri}) { s ->
