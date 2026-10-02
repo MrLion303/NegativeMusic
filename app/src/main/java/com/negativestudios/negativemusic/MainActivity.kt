@@ -166,6 +166,7 @@ private fun NegativeMusicApp() {
     var playerDrag by remember { mutableFloatStateOf(0f) }
     var playerDismissing by remember { mutableStateOf(false) }
     var playlistMenuOpen by remember { mutableStateOf(false) }
+    var reorderPlaylist by remember { mutableStateOf(false) }
     var lyricsEditing by remember { mutableStateOf(false) }
     val toastOffset = remember { Animatable(0f) }
     var toastDragging by remember { mutableStateOf(false) }
@@ -234,7 +235,8 @@ private fun NegativeMusicApp() {
         if (list.isEmpty()) { toast = "No hay canciones para reproducir."; return }
         if (p == null) { toast = "El reproductor se está iniciando."; return }
         val chosen = start ?: list.first()
-        val ordered = if(shuffle) list.filter { it.uri != chosen.uri }.shuffled().let { listOf(chosen) + it } else list
+        val rest = list.filter { it.uri != chosen.uri }
+        val ordered = listOf(chosen) + if (shuffle) rest.shuffled() else rest
         p.setMediaItems(ordered.map(::item), 0, 0L)
         p.shuffleModeEnabled = false; manualQueueUris=emptySet(); p.repeatMode = repeat; p.prepare(); p.play(); now = chosen
     }
@@ -262,7 +264,7 @@ private fun NegativeMusicApp() {
     val visibleSongs = when {
         page == "Favoritos" -> songs.filter { it.uri in favorites }
         page == "Descargas" -> downloadedSongs
-        page.startsWith("playlist:") -> songs.filter { it.uri in (selectedPlaylist?.songs ?: emptyList()) }
+        page.startsWith("playlist:") -> (selectedPlaylist?.songs ?: emptyList()).mapNotNull { uri -> songs.firstOrNull { it.uri == uri } }
         page == "Buscar" -> songs.filter { it.title.contains(search,true) || it.artist.contains(search,true) || it.album.contains(search,true) }
         else -> songs
     }
@@ -283,7 +285,7 @@ private fun NegativeMusicApp() {
             else -> {page="Inicio";search=""}
         }
     }
-    MaterialTheme(colorScheme = if (dark) darkColorScheme(primary=AccentBlue, background=bg, surface=surface) else lightColorScheme(primary=AccentBlue, background=bg, surface=surface)) {
+    MaterialTheme(colorScheme = if (dark) darkColorScheme(primary=AccentBlue, background=bg, surface=surface) else lightColorScheme(primary=AccentBlue, secondary=AccentBlue, secondaryContainer=Color(0xFFDCEBFF), onSecondaryContainer=Color(0xFF14263D), surfaceVariant=Color(0xFFE1EDFF), background=bg, surface=surface)) {
         Column(Modifier.fillMaxSize().background(bg)) {
             if (!page.startsWith("playlist:")) Row(Modifier.fillMaxWidth().padding(horizontal=18.dp, vertical=14.dp), verticalAlignment=Alignment.CenterVertically) {
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(AccentBlue), contentAlignment=Alignment.Center) { Icon(Icons.Default.GraphicEq, null, tint=Color.Black) }
@@ -333,7 +335,8 @@ private fun NegativeMusicApp() {
                             Box{
                                 IconButton(onClick={playlistMenuOpen=true}){Icon(Icons.Default.MoreVert,"Opciones de playlist",tint=AccentBlue)}
                                 DropdownMenu(expanded=playlistMenuOpen,onDismissRequest={playlistMenuOpen=false}){
-                                    DropdownMenuItem(text={Text("Editar playlist")},leadingIcon={Icon(Icons.Default.Edit,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;editTarget=selectedPlaylist})
+                                    DropdownMenuItem(text={Text(if(reorderPlaylist) "Terminar de ordenar" else "Ordenar canciones")},leadingIcon={Icon(Icons.Default.SwapVert,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;reorderPlaylist=!reorderPlaylist})
+                                     DropdownMenuItem(text={Text("Editar playlist")},leadingIcon={Icon(Icons.Default.Edit,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;editTarget=selectedPlaylist})
                                     DropdownMenuItem(text={Text("Eliminar playlist")},leadingIcon={Icon(Icons.Default.Delete,null,tint=AccentBlue)},onClick={playlistMenuOpen=false;playlistDeleteTarget=selectedPlaylist})
                                 }
                             }
@@ -349,7 +352,7 @@ private fun NegativeMusicApp() {
                             Text("${visibleSongs.size} canciones · ${time(playlistDuration)}",Modifier.padding(start=22.dp,end=22.dp,top=4.dp),color=secondary,fontSize=12.sp)
                              Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
                                  ThemedIconButton(dark,Icons.Default.MoreVert,"Opciones de playlist",if(dark)AccentBlue else fg){playlistMenuOpen=true}
-                                 ThemedIconButton(dark,Icons.Default.Shuffle,"Modo aleatorio",if(dark)AccentBlue else fg){if(visibleSongs.isNotEmpty()){shuffle=true;play(visibleSongs.shuffled())}else toast="Esta playlist aún no tiene canciones."}
+                                 ThemedIconButton(dark,Icons.Default.Shuffle,"Modo aleatorio",if(shuffle)AccentBlue else secondary){toggleShuffleQueue()}
                                  ThemedIconButton(dark,Icons.Default.Add,"Añadir canción",if(dark)AccentBlue else fg){selectedSongUris=emptySet();addSongsSearch="";addSongsSource="";showAddSongsDialog=true}
                                  Spacer(Modifier.weight(1f))
                                  FilledIconButton(onClick={if(visibleSongs.isNotEmpty()){play(visibleSongs);showPlayer=true}else toast="Esta playlist aún no tiene canciones."},modifier=Modifier.size(46.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=AccentBlue,contentColor=Color.White)){Icon(Icons.Default.PlayArrow,"Reproducir")}
@@ -407,8 +410,9 @@ private fun NegativeMusicApp() {
                                 delay(2500)
                                 if(marqueeState.maxValue>0){
                                     marqueeState.animateScrollTo(marqueeState.maxValue,tween(11000, easing=LinearEasing))
-                                    marqueeState.scrollTo(0)
                                     delay(2800)
+                                    marqueeState.scrollTo(0)
+                                    delay(600)
                                 } else delay(2500)
                             }
                         }
@@ -570,6 +574,7 @@ private fun NegativeMusicApp() {
             object: NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     if(available.y>0f && playerScroll.value==0 && !playerDismissing){ playerDrag=(playerDrag+available.y).coerceAtLeast(0f); if(playerDrag>0f) playerDismissing=false; return Offset(0f,available.y) }
+                    if(available.y<0f && playerDrag>0f){val consumed=minOf(playerDrag,-available.y);playerDrag=(playerDrag-consumed).coerceAtLeast(0f);return Offset(0f,-consumed)}
                     return Offset.Zero
                 }
                 override suspend fun onPreFling(available: Velocity): Velocity {
@@ -638,7 +643,7 @@ private fun NegativeMusicApp() {
     if (clearDataDialog) AlertDialog(onDismissRequest={clearDataDialog=false},title={Text("Limpiar almacenamiento")},text={Text("Se borrarán playlists, favoritos y preferencias. Las canciones originales del teléfono no se eliminarán.")},confirmButton={TextButton(onClick={prefs.edit().clear().apply();saveLists(emptyList());saveFavorites(emptySet());theme="dark";crossfade=0f;mono=false;normalize=false;volume="Normal";eqOn=false;(0..4).forEach{prefs.edit().putInt("eqBand$it",0).apply()};eqBands=listOf(0f,0f,0f,0f,0f);PlaybackAudioEffects.applyBands(listOf(0,0,0,0,0));PlaybackAudioEffects.setEnabled(false);clearDataDialog=false;toast="Datos de la app limpiados."}){Text("Limpiar datos")}},dismissButton={TextButton(onClick={clearDataDialog=false}){Text("Cancelar")}})
 }
 
-@Composable private fun ThemedIconButton(dark:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,description:String,tint:Color,onClick:()->Unit){ IconButton(onClick=onClick,modifier=Modifier.size(44.dp)){ Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(if(dark)AccentBlue.copy(alpha=.15f) else Color.Transparent),contentAlignment=Alignment.Center){ Icon(icon,description,tint=tint,modifier=Modifier.size(23.dp)) } } }
+@Composable private fun ThemedIconButton(dark:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,description:String,tint:Color,onClick:()->Unit){ IconButton(onClick=onClick,modifier=Modifier.size(44.dp)){ Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(AccentBlue.copy(alpha=.14f)),contentAlignment=Alignment.Center){ Icon(icon,description,tint=AccentBlue,modifier=Modifier.size(23.dp)) } } }
 
 @Composable private fun BottomAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=22.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=if(fg==Color.White) AccentBlue else fg);Spacer(Modifier.width(18.dp));Text(label,color=fg,fontSize=15.sp)}}
 
@@ -684,12 +689,12 @@ private fun SwipeQueueContainer(song: Song, onQueue: () -> Unit, content: @Compo
 }
 
 @Composable private fun HomeTile(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit){
-    Card(modifier.clickable(onClick=onClick),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(if(MaterialTheme.colorScheme.background==Dark)AccentBlue.copy(alpha=.15f) else Color.Transparent),contentAlignment=Alignment.Center){Icon(icon,null,tint=AccentBlue,modifier=Modifier.size(28.dp))};Spacer(Modifier.height(14.dp));Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text(sub,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}}
+    Card(modifier.clickable(onClick=onClick),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(AccentBlue.copy(alpha=.14f)),contentAlignment=Alignment.Center){Icon(icon,null,tint=AccentBlue,modifier=Modifier.size(28.dp))};Spacer(Modifier.height(14.dp));Text(title,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Bold);Text(sub,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)}}
 }
 @Composable private fun HomeRow(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,fg:Color,secondary:Color,cover:String="",onClick:()->Unit){
     Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=20.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){
         if(cover.isNotBlank()) AsyncImage(model=cover,contentDescription="Portada de $title",modifier=Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
-        else Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(if(MaterialTheme.colorScheme.background==Dark)AccentBlue.copy(alpha=.15f) else MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){Icon(icon,null,tint=if(MaterialTheme.colorScheme.background==Dark)AccentBlue else MaterialTheme.colorScheme.onSurface)}
+        else Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(AccentBlue.copy(alpha=.14f)),contentAlignment=Alignment.Center){Icon(icon,null,tint=AccentBlue)}
         Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=fg,fontWeight=FontWeight.SemiBold);Text(sub,color=secondary,fontSize=12.sp)};Icon(Icons.Default.ChevronRight,null,tint=secondary)
     }
 }
@@ -891,7 +896,7 @@ private fun SettingsPage(
 private fun SettingsCategory(title: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, fg: Color, sec: Color, card: Color, dark: Boolean, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(AccentBlue.copy(alpha = .15f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = if (dark) AccentBlue else fg) }
+            Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(AccentBlue.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = AccentBlue) }
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) { Text(title, color = fg, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(3.dp)); Text(description, color = sec, fontSize = 12.sp) }
             Icon(Icons.Default.ChevronRight, null, tint = sec)
