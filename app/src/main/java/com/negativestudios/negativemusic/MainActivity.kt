@@ -277,7 +277,7 @@ private fun NegativeMusicApp() {
         page == "Favoritos" -> songs.filter { it.uri in favorites }
         page == "Descargas" -> downloadedSongs
         page.startsWith("playlist:") -> (selectedPlaylist?.songs ?: emptyList()).mapNotNull { uri -> songs.firstOrNull { it.uri == uri } }
-        page == "Buscar" -> songs.filter { displaySong(it).title.contains(search,true) || displaySong(it).artist.contains(search,true) || it.album.contains(search,true) }
+        page == "Buscar" -> songs.filter { song -> val title = songTitle(song); val artist = songArtist(song); title.contains(search, true) || artist.contains(search, true) || song.album.contains(search, true) }
         else -> songs
     }.map(::displaySong)
 
