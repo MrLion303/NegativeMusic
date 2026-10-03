@@ -444,6 +444,7 @@ private fun NegativeMusicApp() {
                 }
             }
             }
+            }
     if (toast.isNotBlank()) {
         Box(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp).offset{IntOffset(toastOffset.value.roundToInt(),0)}.clip(RoundedCornerShape(14.dp)).background(Color.Transparent).pointerInput(toast){
             detectHorizontalDragGestures(
@@ -490,7 +491,6 @@ private fun NegativeMusicApp() {
                     NavigationBarItem(selected=page==target || (target=="Biblioteca"&&(page=="Descargas"||page=="Favoritos"||page.startsWith("playlist:"))),onClick={page=target;search="";if(target=="Ajustes")settingsSection=null},icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=AccentBlue,indicatorColor=AccentBlue.copy(alpha=.14f),selectedTextColor=AccentBlue,unselectedTextColor=secondary))
                 }
             }
-        }
     }
     if (playlistDeleteTarget != null) { val target=playlistDeleteTarget!!
         androidx.compose.ui.window.Dialog(onDismissRequest={playlistDeleteTarget=null}) {
