@@ -20,6 +20,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -454,23 +455,15 @@ private fun NegativeMusicApp() {
                     Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(38.dp))
                     Spacer(Modifier.width(9.dp))
                     Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))){
-                        val marqueeState=rememberScrollState()
-                        LaunchedEffect(now!!.uri, now!!.title){
-                            marqueeState.scrollTo(0)
-                            while(true){
-                                delay(2500)
-                                if(marqueeState.maxValue>0){
-                                    marqueeState.animateScrollTo(marqueeState.maxValue,tween(11000, easing=LinearEasing))
-                                    delay(2800)
-                                    marqueeState.scrollTo(0)
-                                    delay(600)
-                                } else delay(2500)
-                            }
-                        }
                         Column(Modifier.fillMaxWidth()){
-                            Row(Modifier.fillMaxWidth().horizontalScroll(marqueeState),verticalAlignment=Alignment.CenterVertically){
-                                Text(now!!.title,color=fg,fontWeight=FontWeight.SemiBold,maxLines=1,softWrap=false)
-                            }
+                            Text(
+                                now!!.title,
+                                modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
+                                color = fg,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                             Text(now!!.artist,color=secondary,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         }
                     }
