@@ -451,11 +451,12 @@ private fun NegativeMusicApp() {
         ){Text(toast,color=if(dark)Color.White else Color(0xFF171717),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)}
     }
             if (now != null) {
-                Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable{showPlayer=true}.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(38.dp))
-                    Spacer(Modifier.width(9.dp))
-                    Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))){
-                        Column(Modifier.fillMaxWidth()){
+                Row(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=5.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { showPlayer = true },verticalAlignment=Alignment.CenterVertically) {
+                        Icon(Icons.Default.Album,null,tint=AccentBlue,modifier=Modifier.size(38.dp))
+                        Spacer(Modifier.width(9.dp))
+                        Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))){
+                            Column(Modifier.fillMaxWidth()){
                             Text(
                                 now!!.title,
                                 modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
@@ -465,6 +466,7 @@ private fun NegativeMusicApp() {
                                 softWrap = false
                             )
                             Text(now!!.artist,color=secondary,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                            }
                         }
                     }
                     IconButton(onClick={if(controller?.isPlaying==true)controller?.pause() else controller?.play()}){Icon(if(playing)Icons.Default.Pause else Icons.Default.PlayArrow,null,tint=AccentBlue)}
